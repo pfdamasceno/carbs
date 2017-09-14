@@ -877,6 +877,17 @@ class RigidBodySimulation:
     def run(self,num_steps=1e6):
         run(num_steps)
 
+    def update_positions(self):
+        '''
+        update all particles positions after relaxation
+        '''
+        for vh in range(len(self.origami.nucleotide_matrix)):
+            for idx in range(len(self.origami.nucleotide_matrix[vh])):
+                nucleotide = nucleotide_matrix[vh][index][is_fwd]
+                simulation_num = nucleotide.simulation_num
+                nucleotide.position = system.particles[simulation_num].position
+
+
 def main():
     #Initialize cadnano
     app = cadnano.app()
@@ -911,6 +922,7 @@ def main():
     new_simulation.set_lj_potentials()
     new_simulation.dump_settings(OUTPUT_FILENAME)
     new_simulation.run(1e6)
+    new_simulation.update_positions()
 
 if __name__ == "__main__":
   main()
