@@ -959,9 +959,10 @@ class CGSimulation:
         self.num_nucleotides = len(nucl_positions)
 
         self.snapshot = data.make_snapshot(N = self.num_nucleotides,
-                                          box = data.boxdim(Lx=120, Ly=120, Lz=300),
+                                          box = data.boxdim(Lx=120, Ly=120, Lz=120),
                                           particle_types = self.particle_types,
-                                          bond_types = ['interbead','dsDNA']);
+                                          bond_types = ['interbead','watson_crick', 'cross_1', 'cross_2'],
+                                          dihedral_types = ['dihedral']);
 
         self.snapshot.particles.position[:]       = nucl_positions
         self.snapshot.particles.moment_inertia[:] = [[1., 1., 1.]]
@@ -998,36 +999,84 @@ class CGSimulation:
 
         #create bonds between watson-crick pairs
         watson_crick_connections = []
+        cross_1_connections      = []
+        cross_2_connections      = []
+        dihedral_connections     = []
+
         for c, chain in enumerate(oligos_list):
             for s, strand in enumerate(chain):
                 for p, pointer in enumerate(strand):
-                    if p == length(strand) - 2:
-                        continue
                     this_nucleotide = self.origami.get_nucleotide(pointer)
                     this_nucleotide_sim_num = this_nucleotide.simulation_nucleotide_num
                     is_dsDNA = self.origami.get_nucleotide_type(pointer).type
-                    if is_dsDNA:
-                        [vh, index, is_fwd] = pointer
-                        #find the watson-crick (wc) pairing nucleotide
-                        is_rev = 1 - is_fwd
-                        pointer_pair = [vh, index, is_rev]
-                        wc_pair_nucleotide = self.origami.get_nucleotide(pointer_pair)
-                        wc_pair_nucleotide_sim_num = wc_pair_nucleotide.simulation_nucleotide_num
-                        conn_1 = [this_nucleotide_sim_num, wc_pair_nucleotide_sim_num]
-                        conn_2 = [wc_pair_nucleotide_sim_num, this_nucleotide_sim_num]
-                        if conn_1 and conn_2 not in watson_crick_connections:
-                            watson_crick_connections.append(conn_1)
+                    if not is_dsDNA: #all the following bonds are only relevant for dsDNA
+                        continue
+
+                    #1. calculate watson_crick pair and assing bond
+                    [vh_0, index_0, is_fwd_0] = pointer
+                    wc_pair_pointer           = [vh_0, index_0, 1 - is_fwd_0]
+                    wc_pair_sim_num           = self.origami.get_nucleotide(wc_pair_pointer).simulation_nucleotide_num
+                    conn_01 = [this_nucleotide_sim_num, wc_pair_sim_num]
+                    conn_02 = [wc_pair_sim_num, this_nucleotide_sim_num]
+                    if conn_01 and conn_02 not in watson_crick_connections:
+                        watson_crick_connections.append(conn_01)
+
+                    #2. calculate watson_crick for next nucleotide and assign bond
+                    if p != len(strand) - 1:
+                        next_nucleotide_pointer   = strand[p+1]
+                        [vh_1, index_1, is_fwd_1] = next_nucleotide_pointer
+                        next_nucleotide_sim_num = self.origami.get_nucleotide(next_nucleotide_pointer).simulation_nucleotide_num
+                        is_dsDNA = self.origami.get_nucleotide_type(next_nucleotide_pointer).type
+                        if not is_dsDNA: #TODO: handle skip !!
+                            continue
+                        next_pair_pointer         = [vh_1, index_1, 1 - is_fwd_1]
+                        next_pair_sim_num         = self.origami.get_nucleotide(next_pair_pointer).simulation_nucleotide_num
+                        conn_11 = [this_nucleotide_sim_num, next_pair_sim_num]
+                        conn_12 = [next_pair_sim_num, this_nucleotide_sim_num]
+                        if conn_11 and conn_12 not in cross_1_connections:
+                            cross_1_connections.append(conn_11)
+
+                        #3. Add dihedral bond
+                        dihedral_particles = [wc_pair_sim_num, this_nucleotide_sim_num, next_nucleotide_sim_num, next_pair_sim_num]
+                        dihedral_connections.append(dihedral_particles)
+
+                    #4. calculate watson_crick for previous nucleotide and assign bond
+                    if p > 0:
+                        previous_nucleotide_pointer = strand[p-1]
+                        [vh_2, index_2, is_fwd_2]   = previous_nucleotide_pointer
+                        is_dsDNA = self.origami.get_nucleotide_type(previous_nucleotide_pointer).type
+                        if not is_dsDNA: #TODO: handle skip !!
+                            continue
+                        previous_pair_pointer       = [vh_2, index_2, 1 - is_fwd_2]
+                        previous_pair_sim_num       = self.origami.get_nucleotide(previous_pair_pointer).simulation_nucleotide_num
+                        conn_21 = [this_nucleotide_sim_num, previous_pair_sim_num]
+                        conn_22 = [previous_pair_sim_num, this_nucleotide_sim_num]
+                        if conn_21 and conn_22 not in cross_2_connections:
+                            cross_2_connections.append(conn_21)
+
+
 
         for wc_conn in watson_crick_connections:
-            self.system.bonds.add('dsDNA', wc_conn[0], wc_conn[1])
+            self.system.bonds.add('watson_crick', wc_conn[0], wc_conn[1])
+
+        for x1_conn in cross_1_connections:
+            self.system.bonds.add('cross_1', x1_conn[0], x1_conn[1])
+
+        for x2_conn in cross_2_connections:
+            self.system.bonds.add('cross_2', x2_conn[0], x2_conn[1])
+
+        for dih in dihedral_connections:
+            self.system.dihedrals.add('dihedral', dih[0], dih[1], dih[2], dih[3])
 
     def set_harmonic_bonds(self):
         '''
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('interbead', k=5.0 , r0=0.75);
-        self.harmonic.bond_coeff.set('dsDNA', k=5.0 , r0=2.25);
+        self.harmonic.bond_coeff.set('interbead', k=150.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('watson_crick', k=150.0 , r0=2.25);
+        self.harmonic.bond_coeff.set('cross_1', k=150.0 , r0=2.37);
+        self.harmonic.bond_coeff.set('cross_2', k=150.0 , r0=2.37);
 
     def set_dihedral_bonds(self):
         '''
@@ -1039,9 +1088,8 @@ class CGSimulation:
             F = - kappa * (theta - theta0)
             return(V, F)
 
-        upper_connection = []
-        lower_connection = []
-
+        dtable = md.dihedral.table(width = 1000)
+        dtable.dihedral_coeff.set('dihedral', func=harmonic_angle, coeff=dict(kappa=80, theta0=-0.28))
 
     def set_lj_potentials(self):
         '''
@@ -1049,10 +1097,10 @@ class CGSimulation:
         '''
         wca = md.pair.lj(r_cut=2.0**(1/6), nlist=self.nl)
         wca.set_params(mode='shift')
-        wca.pair_coeff.set(self.particle_types, self.particle_types, epsilon=1.0, sigma=1.0, r_cut=1.0*2**(1/6))
+        wca.pair_coeff.set(self.particle_types, self.particle_types, epsilon=1.0, sigma=0.75, r_cut=0.75*2**(1/6))
 
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.001, aniso=True);
+        md.integrate.mode_standard(dt=0.003);
         all = group.all()
         md.integrate.langevin(group=all, kT=0.2, seed=42);
 
@@ -1073,8 +1121,9 @@ def main():
     #Initialize cadnano
     app = cadnano.app()
     doc = app.document = Document()
-    INPUT_FILENAME  = '../cadnano-files/PFD_tripod_2017.json'
-    OUTPUT_FILENAME = '../cadnano-files/carbs_output/PFD_tripod_2017_CG.gsd'
+    INPUT_FILENAME    = '../cadnano-files/PFD_tripod_2017.json'
+    OUTPUT_FILENAME_1 = '../cadnano-files/carbs_output/PFD_tripod_2017_Rigid.gsd'
+    OUTPUT_FILENAME_2 = '../cadnano-files/carbs_output/PFD_tripod_2017_CG.gsd'
 
     doc.readFile(INPUT_FILENAME);
 
@@ -1101,8 +1150,8 @@ def main():
     # relax_simulation.create_bonds()
     # relax_simulation.set_initial_harmonic_bonds()
     # relax_simulation.set_lj_potentials()
-    # relax_simulation.dump_settings(OUTPUT_FILENAME, 1e3)
-    # relax_simulation.run(5e5)
+    # relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
+    # relax_simulation.run(1e6)
     # relax_simulation.update_positions()
     # relax_simulation.save_to_pickle('origami_relaxed.pckl')
 
@@ -1113,10 +1162,11 @@ def main():
     cg_simulation.initialize_particles()
     cg_simulation.initialize_system()
     cg_simulation.create_bonds()
-    cg_simulation.set_harmonic_bonds
+    cg_simulation.set_harmonic_bonds()
+    cg_simulation.set_dihedral_bonds()
     cg_simulation.set_lj_potentials()
-    cg_simulation.dump_settings(OUTPUT_FILENAME, 1)
-    cg_simulation.run(100)
+    cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1e3)
+    cg_simulation.run(1e5)
 
 if __name__ == "__main__":
   main()
