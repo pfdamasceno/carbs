@@ -899,7 +899,6 @@ class RigidBodySimulation:
         with open(filename, 'wb') as f:
             pickle.dump(origami, f)
 
-
 class CGSimulation:
     '''
     1-bead/bp CG simulation class for Cadnano designs
@@ -962,7 +961,7 @@ class CGSimulation:
         self.snapshot = data.make_snapshot(N = self.num_nucleotides,
                                           box = data.boxdim(Lx=120, Ly=120, Lz=300),
                                           particle_types = self.particle_types,
-                                          bond_types = ['interbead']);
+                                          bond_types = ['interbead','dsDNA']);
 
         self.snapshot.particles.position[:]       = nucl_positions
         self.snapshot.particles.moment_inertia[:] = [[1., 1., 1.]]
@@ -997,16 +996,38 @@ class CGSimulation:
                 self.system.bonds.add('interbead', n, n+1)
             i += len(flat_chain)
 
+        #create bonds between watson-crick pairs
+        watson_crick_connections = []
+        for c, chain in enumerate(oligos_list):
+            for s, strand in enumerate(chain):
+                for p, pointer in enumerate(strand):
+                    if p == length(strand) - 2:
+                        continue
+                    this_nucleotide = self.origami.get_nucleotide(pointer)
+                    this_nucleotide_sim_num = this_nucleotide.simulation_nucleotide_num
+                    is_dsDNA = self.origami.get_nucleotide_type(pointer).type
+                    if is_dsDNA:
+                        [vh, index, is_fwd] = pointer
+                        #find the watson-crick (wc) pairing nucleotide
+                        is_rev = 1 - is_fwd
+                        pointer_pair = [vh, index, is_rev]
+                        wc_pair_nucleotide = self.origami.get_nucleotide(pointer_pair)
+                        wc_pair_nucleotide_sim_num = wc_pair_nucleotide.simulation_nucleotide_num
+                        conn_1 = [this_nucleotide_sim_num, wc_pair_nucleotide_sim_num]
+                        conn_2 = [wc_pair_nucleotide_sim_num, this_nucleotide_sim_num]
+                        if conn_1 and conn_2 not in watson_crick_connections:
+                            watson_crick_connections.append(conn_1)
+
+        for wc_conn in watson_crick_connections:
+            self.system.bonds.add('dsDNA', wc_conn[0], wc_conn[1])
+
     def set_harmonic_bonds(self):
         '''
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
         self.harmonic.bond_coeff.set('interbead', k=5.0 , r0=0.75);
-
-        # fix diameters for vizualization
-        for i in range(0, self.num_nucleotides):
-            self.system.particles[i].diameter = 1.0
+        self.harmonic.bond_coeff.set('dsDNA', k=5.0 , r0=2.25);
 
     def set_dihedral_bonds(self):
         '''
@@ -1018,20 +1039,8 @@ class CGSimulation:
             F = - kappa * (theta - theta0)
             return(V, F)
 
-        
-
-        oligos_list = self.origami.oligos_list
-        index_1st_nucl_in_strand = 0
-        for c, chain in enumerate(oligos_list):
-            for s, strand in enumerate(chain):
-                for p, pointer in enumerate(strand):
-                    if p < length(strand) - 2:
-                        this_nucleotide = self.origami.get_nucleotide(pointer)
-                        simulation_num = this_nucleotide.simulation_nucleotide_num
-                        is_dsDNA = self.origami.get_nucleotide_type(pointer).type
-                        if is_dsDNA:
-                            [vh, index, is_fwd] = pointer
-                            watson_crick_pair = [vh, index, is_fwd]
+        upper_connection = []
+        lower_connection = []
 
 
     def set_lj_potentials(self):
@@ -1059,7 +1068,6 @@ class CGSimulation:
 
     def run(self,num_steps=1e6):
         run(num_steps)
-
 
 def main():
     #Initialize cadnano
