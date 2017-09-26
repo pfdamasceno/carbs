@@ -1121,9 +1121,11 @@ def main():
     #Initialize cadnano
     app = cadnano.app()
     doc = app.document = Document()
-    INPUT_FILENAME    = '../cadnano-files/PFD_tripod_2017.json'
-    OUTPUT_FILENAME_1 = '../cadnano-files/carbs_output/PFD_tripod_2017_Rigid.gsd'
-    OUTPUT_FILENAME_2 = '../cadnano-files/carbs_output/PFD_tripod_2017_CG.gsd'
+    INPUT_FILENAME    = '../cadnano-files/PFD_6hb_skip.json'
+    OUTPUT_FILENAME_1 = '../cadnano-files/carbs_output/PFD_6hb_skip_rigid.gsd'
+    OUTPUT_FILENAME_2 = '../cadnano-files/carbs_output/PFD_6hb_skip_CG.gsd'
+
+    RELAX = True
 
     doc.readFile(INPUT_FILENAME);
 
@@ -1141,32 +1143,34 @@ def main():
     new_origami.cluster_into_bodies()
     new_origami.parse_soft_connections()
 
-    # #Start relaxation simulation
-    # relax_simulation         = RigidBodySimulation()
-    # relax_simulation.origami = new_origami
-    # relax_simulation.initialize_relax_md()
-    # relax_simulation.initialize_particles()
-    # relax_simulation.create_rigid_bodies()
-    # relax_simulation.create_bonds()
-    # relax_simulation.set_initial_harmonic_bonds()
-    # relax_simulation.set_lj_potentials()
-    # relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
-    # relax_simulation.run(1e6)
-    # relax_simulation.update_positions()
-    # relax_simulation.save_to_pickle('origami_relaxed.pckl')
+    #Start relaxation simulation
+    if RELAX == True:
+        relax_simulation         = RigidBodySimulation()
+        relax_simulation.origami = new_origami
+        relax_simulation.initialize_relax_md()
+        relax_simulation.initialize_particles()
+        relax_simulation.create_rigid_bodies()
+        relax_simulation.create_bonds()
+        relax_simulation.set_initial_harmonic_bonds()
+        relax_simulation.set_lj_potentials()
+        relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
+        relax_simulation.run(1e4)
+        relax_simulation.update_positions()
+        relax_simulation.save_to_pickle('origami_relaxed.pckl')
 
     #Start coarse-grained simulation
-    cg_simulation = CGSimulation()
-    cg_simulation.parse_origami_from_pickle('origami_relaxed.pckl')
-    cg_simulation.initialize_cg_md()
-    cg_simulation.initialize_particles()
-    cg_simulation.initialize_system()
-    cg_simulation.create_bonds()
-    cg_simulation.set_harmonic_bonds()
-    cg_simulation.set_dihedral_bonds()
-    cg_simulation.set_lj_potentials()
-    cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1e3)
-    cg_simulation.run(1e5)
+    elif RELAX == False:
+        cg_simulation = CGSimulation()
+        cg_simulation.parse_origami_from_pickle('origami_relaxed.pckl')
+        cg_simulation.initialize_cg_md()
+        cg_simulation.initialize_particles()
+        cg_simulation.initialize_system()
+        cg_simulation.create_bonds()
+        cg_simulation.set_harmonic_bonds()
+        cg_simulation.set_dihedral_bonds()
+        cg_simulation.set_lj_potentials()
+        cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1e3)
+        cg_simulation.run(1e5)
 
 if __name__ == "__main__":
   main()
