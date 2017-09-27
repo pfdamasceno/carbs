@@ -1,6 +1,6 @@
 # get CARBS !
 
-![CARBS temp logo](/images/carbs.jpg)
+![CARBS temp logo](misc/images/carbs.jpg)
 ### About
 CARBS is a python wrapper for running **CA**dnano **R**igid **B**ody **S**imulations with HOOMD-blue. 
 

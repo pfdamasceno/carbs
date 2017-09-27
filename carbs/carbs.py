@@ -954,7 +954,8 @@ class CGSimulation:
         oligos_list = self.origami.oligos_list
 
         nucl_positions = [self.origami.get_nucleotide(pointer).position[1] \
-             for chain in oligos_list for strand in chain for pointer in strand]
+             for chain in oligos_list for strand in chain for pointer in strand \
+             if self.origami.get_nucleotide(pointer).skip]
 
         self.num_nucleotides = len(nucl_positions)
 
@@ -972,8 +973,9 @@ class CGSimulation:
         for chain in oligos_list:
             for strand in chain:
                 for pointer in strand:
-                    self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
-                    self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
+                    if not self.origami.get_nucleotide_type(pointer).skip:
+                        self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
+                        self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
                     i += 1
 
         #random initial velocity
@@ -986,16 +988,28 @@ class CGSimulation:
 
     def create_bonds(self):
         '''
-        Create interbody bonds
+        Create spring bonds between a particle in a chain and its neighbors
+        If neighbor is skip, find 'end' of skip region and add next as neighbor
         '''
         oligos_list = self.origami.oligos_list
 
-        i = 0
+        particle_sim_num = 0
         for chain in oligos_list:
             flat_chain = np.concatenate(chain)
-            for n in range(i, i + len(flat_chain) - 1):
-                self.system.bonds.add('interbead', n, n+1)
-            i += len(flat_chain)
+            this_bead == None
+            next_bead == None
+            for counter range(len(flat_chain) - 1):
+                if not self.origami.get_nucleotide_type(flat_chain[counter]).skip:
+                    this_bead = particle_sim_num
+                    particle_sim_num += 1
+                if not self.origami.get_nucleotide_type(flat_chain[counter + 1]).skip:
+                    next_bead = this_bead + 1
+                if this_bead != None and next_bead != None:
+                    self.system.bonds.add('interbead', this_bead, next_bead)
+                    this_bead == None
+                    next_bead == None
+            # end of chain. next chain starts at another bead:
+            particle_sim_num += 1
 
         #create bonds between watson-crick pairs
         watson_crick_connections = []
@@ -1012,7 +1026,7 @@ class CGSimulation:
                     if not is_dsDNA: #all the following bonds are only relevant for dsDNA
                         continue
 
-                    #1. calculate watson_crick pair and assing bond
+                    #1. calculate watson_crick pair and assing bonds for this nucleotide
                     [vh_0, index_0, is_fwd_0] = pointer
                     wc_pair_pointer           = [vh_0, index_0, 1 - is_fwd_0]
                     wc_pair_sim_num           = self.origami.get_nucleotide(wc_pair_pointer).simulation_nucleotide_num
@@ -1156,12 +1170,12 @@ def main():
         relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
         relax_simulation.run(1e4)
         relax_simulation.update_positions()
-        relax_simulation.save_to_pickle('origami_relaxed.pckl')
+        relax_simulation.save_to_pickle('data/origami_relaxed.pckl')
 
     #Start coarse-grained simulation
     elif RELAX == False:
         cg_simulation = CGSimulation()
-        cg_simulation.parse_origami_from_pickle('origami_relaxed.pckl')
+        cg_simulation.parse_origami_from_pickle('data/origami_relaxed.pckl')
         cg_simulation.initialize_cg_md()
         cg_simulation.initialize_particles()
         cg_simulation.initialize_system()
