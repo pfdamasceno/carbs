@@ -986,10 +986,10 @@ class CGSimulation:
         self.system = init.read_snapshot(self.snapshot);
         self.nl     = md.nlist.cell();
 
-    def create_bonds(self):
+    def create_adjacent_bonds(self):
         '''
-        Create spring bonds between a particle in a chain and its neighbors
-        If neighbor is skip, find 'end' of skip region and add next as neighbor
+        Create spring bonds between adjacent (neighboring) particles
+        If neighbor is skip, find 'end' of skip region and add next bead as neighbor
         '''
         oligos_list = self.origami.oligos_list
 
@@ -998,7 +998,7 @@ class CGSimulation:
             flat_chain = np.concatenate(chain)
             this_bead == None
             next_bead == None
-            for counter range(len(flat_chain) - 1):
+            for counter in range(len(flat_chain) - 1):
                 if not self.origami.get_nucleotide_type(flat_chain[counter]).skip:
                     this_bead = particle_sim_num
                     particle_sim_num += 1
@@ -1011,6 +1011,11 @@ class CGSimulation:
             # end of chain. next chain starts at another bead:
             particle_sim_num += 1
 
+
+    def create_other_bonds(self):
+        '''
+        Create Watson-Crick spring as well as cross-spring to beads above and below
+        '''
         #create bonds between watson-crick pairs
         watson_crick_connections = []
         cross_1_connections      = []
