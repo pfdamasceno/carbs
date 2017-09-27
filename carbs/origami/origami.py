@@ -1,11 +1,10 @@
 import numpy as np
 import cadnano
-import vectortools
 import functools
 
 from cadnano.document import Document
-from hoomd import *
-from hoomd import md
+
+from utils import vectortools
 
 class Origami:
     '''
@@ -16,7 +15,6 @@ class Origami:
         #Body variables
         self.rigid_bodies                  = []
         self.soft_bodies                   = []
-
 
         self.rigid_body_nucleotide_types   = []
         self.rigid_body_nucleotides        = []
@@ -34,6 +32,7 @@ class Origami:
         #Cadnano parameters
         self.part                   = None
         self.oligos                 = None
+        self.oligos_list            = None
         self.strands                = None
         self.num_vhs                = None
         self.nucleotide_list        = None
@@ -414,8 +413,6 @@ class Origami:
         self.oligos = self.part.oligos()
         self.oligos = sorted(self.oligos, key=lambda x: x.length(), reverse=True)
 
-        return self.oligos
-
     def get_coordinates(self, vh, index):
         '''
         Given a vh and a index, returns (x,y,z)
@@ -467,13 +464,21 @@ class Origami:
             else:
                 self.long_range_connections[conn_pointer_1] = conn_pointer_2
 
-    def get_nucleotide(self,pointers):
+    def get_nucleotide(self, pointers):
         '''
         Given a tuple of pointers in the form [vh, index, is_fwd],
         Returns the global nucleotide referent to the pointers
         '''
         [vh, index, is_fwd] = pointers
         return self.nucleotide_matrix[vh][index][is_fwd]
+
+    def get_nucleotide_type(self, pointers):
+        '''
+        Given a tuple of pointers in the form [vh, index, is_fwd],
+        Returns the global nucleotide referent to the pointers
+        '''
+        [vh, index, is_fwd] = pointers
+        return self.nucleotide_type_matrix[vh][index]
 
     def create_strand_list_and_populate_nucleotide_matrix(self, oligo):
         '''
@@ -547,7 +552,6 @@ class Origami:
         for oligo in self.oligos:
             strand_list = self.create_strand_list_and_populate_nucleotide_matrix(oligo)
             self.oligos_list.append(strand_list)
-        return self.oligos_list
 
     def distance_between_vhs(self, vh1, index1, is_fwd1, vh2, index2, is_fwd2):
         '''
@@ -660,7 +664,6 @@ class Nucleotide:
         self.vh                           = None      # Nucleotide's virtual helix
         self.skip                         = False     # Skip value for the nucleotide
 
-        self.points_global_frame          = None      # backbone, sidechain and aux points in global frame
         self.quaternion                   = None      # quaternion orientation for this nucleotide
         self.vectors_body_frame           = None      # orthogonal vectors in the body reference frame for quaternion calculation
         self.position                     = None      # Nucleotide position
@@ -703,214 +706,3 @@ class Body:
         self.comass_position    = vectortools.calculateCoM(positions)
         self.moment_inertia     = vectortools.calculateMomentInertia(positions)
         self.comass_quaternion  = [1., 0., 0., 0.]
-
-class RigidBodySimulation:
-    '''
-    Rigid body simulation class for Cadnano designs
-    '''
-
-    def __init__(self):
-        self.origami                 = None
-        self.num_steps               = None
-        self.ssDNA_harmonic_bond     = {'r0':None, 'k0':None}
-        self.ssDNA_harmonic_angle    = {'a0':None, 'k0':None}
-
-        self.dsDNA_harmonic_bond     = {'r0':None, 'k0':None}
-        self.dsDNA_harmonic_angle    = {'a0':None, 'k0':None}
-
-        self.bodies_comass_positions = []
-        self.bodies_moment_inertia   = []
-
-        self.snapshot                = None
-
-        self.body_types              = []
-        self.bond_types              = []
-
-        #Rigid/soft bodies from Origami structure
-        self.num_rigid_bodies        = 0
-        self.num_soft_bodies         = 0
-        self.rigid_bodies            = None
-        self.soft_bodies             = None
-
-    def initialize_relax_md(self):
-        '''
-        Initialize relaxation protocol
-        '''
-        context.initialize("");
-        relax_sim = context.SimulationContext();
-
-    def initialize_particles(self):
-        '''
-        Initialize particle positions, moment of inertia and velocities
-        '''
-
-        #Retrieve origami rigid body information
-        self.rigid_bodies = self.origami.rigid_bodies
-        self.soft_bodies  = self.origami.soft_bodies
-
-        self.num_rigid_bodies = len(self.rigid_bodies)
-        self.num_soft_bodies  = len(self.soft_bodies)
-
-        self.rigid_bodies_comass_positions  = [body.comass_position for body in self.rigid_bodies]
-        self.center_of_mass                 = np.average(np.asarray(self.rigid_bodies_comass_positions)[:,:3], axis=0)
-
-        self.rigid_bodies_comass_positions -= self.center_of_mass
-        self.rigid_bodies_moment_inertia    = [body.moment_inertia for body in self.rigid_bodies]
-
-        self.soft_bodies_comass_positions  = [body.comass_position for body in self.soft_bodies]
-        self.soft_bodies_comass_positions -= self.center_of_mass
-        self.soft_bodies_moment_inertia    = [body.moment_inertia for body in self.soft_bodies]
-
-
-        self.body_types  = ["rigid_body"+"_"+str(i) for i in range(self.num_rigid_bodies)]
-        self.body_types += ["nucleotides"]
-
-        self.snapshot = data.make_snapshot(N = self.num_rigid_bodies + self.num_soft_bodies,
-                                          box = data.boxdim(Lx=120, Ly=120, Lz=300),
-                                          particle_types = self.body_types,
-                                          bond_types = ['interbody']);
-
-        self.snapshot.particles.position[:]       = np.vstack((self.rigid_bodies_comass_positions, self.soft_bodies_comass_positions))
-        self.snapshot.particles.moment_inertia[:] = np.vstack((self.rigid_bodies_moment_inertia  , self.soft_bodies_moment_inertia))
-
-        #particle types
-        for i in range(self.num_rigid_bodies):
-            self.snapshot.particles.typeid[i] = i
-
-        #particle types
-        for i in range(self.num_rigid_bodies,self.num_rigid_bodies+self.num_soft_bodies):
-            self.snapshot.particles.typeid[i] = self.num_rigid_bodies
-
-        self.snapshot.particles.velocity[:] = np.random.normal(0.0, np.sqrt(0.8 / 1.0), [self.snapshot.particles.N, 3]);
-
-    def create_rigid_bodies(self):
-        # Read the snapshot and create neighbor list
-        self.system = init.read_snapshot(self.snapshot);
-        self.nl     = md.nlist.stencil();
-
-        # Create rigid particles
-        self.rigid = md.constrain.rigid();
-        for b, body in enumerate(self.rigid_bodies):
-            body_type            = self.body_types[b]
-
-            nucleotide_positions = [nucleotide.position[1] for nucleotide in body.nucleotides]
-            #move particles to body reference frame
-            nucleotide_positions -= body.comass_position
-            self.rigid.set_param(body_type, \
-                        types=['nucleotides']*len(nucleotide_positions), \
-                        positions = nucleotide_positions);
-
-        self.rigid.create_bodies()
-
-
-    def create_bonds(self):
-        '''
-        Create interbody bonds
-        '''
-        self.nucleotide_bonds = self.origami.inter_nucleotide_connections
-
-        for connection in self.nucleotide_bonds:
-            delta = self.num_rigid_bodies
-            nucleotide_num_1, nucleotide_num_2 = connection
-            self.system.bonds.add('interbody', delta + nucleotide_num_1, delta + nucleotide_num_2)
-
-    def set_harmonic_bonds(self):
-        '''
-        Set harmonic bonds
-        '''
-        self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('interbody', k=10.0    , r0=0.5);
-
-        # fix diameters for vizualization
-        for i in range(0, self.num_rigid_bodies):
-            self.system.particles[i].diameter = 2.0
-        for i in range(self.num_rigid_bodies, len(self.system.particles)):
-            self.system.particles[i].diameter = 0.5
-
-    def set_lj_potentials(self):
-        '''
-        Set LJ potentials
-        '''
-        wca = md.pair.lj(r_cut=2.0**(1/6), nlist=self.nl)
-        wca.set_params(mode='shift')
-        wca.pair_coeff.set(self.body_types, self.body_types, epsilon=1.0, sigma=1.0, r_cut=1.0*2**(1/6))
-
-        ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.001, aniso=True);
-        rigid     = group.rigid_center();
-        non_rigid = group.nonrigid()
-        combined  = group.union('combined',rigid,non_rigid)
-        md.integrate.langevin(group=combined, kT=0.2, seed=42);
-
-    def dump_settings(self,output_fname):
-        '''
-        Dump settings
-        '''
-        dump.gsd(output_fname,
-                       period=1e4,
-                       group=group.all(),
-                       static=[],
-                       overwrite=True);
-
-    def update_quaternions(self):
-        '''
-        update global particle positions and quaternions
-        '''
-        for b, body in enumerate(self.rigid_bodies):
-            for nucleotides in body.nucleotides:
-                vh     = nucleotide.vh
-                index  = nucleotide.index
-                is_fwd = nucl.is_fwd
-                simulation_num      = nucleotide.simulation_nucleotide_num
-                nucleotide_position = self.system.particles[simulation_num].position
-
-                nucl_quaternion_new = system.particles[simulation_num].orientation
-                nucl_quaternion_new = vectortools.quat2Quat(nucl_quaternion_new)
-                nucl_quaternion_old = nucleotide.quaternion
-                nucl_quaternion_old = vectortools.quat2Quat(nucl_quaternion_old)
-
-                quat = nucl_quaternion_new * nucl_quaternion_old
-                quat = [quat.w, quat.x, quat.y, quat.z]
-                self.origami.nucleotide_matrix[vh][index][is_fwd].position[1] = nucl_position
-                self.origami.nucleotide_matrix[vh][index][is_fwd].quaternion  = quat
-
-    def run(self,num_steps=1e6):
-        run(num_steps)
-
-def main():
-    #Initialize cadnano
-    app = cadnano.app()
-    doc = app.document = Document()
-    INPUT_FILENAME  = '../cadnano-files/PFD_tripod_2017.json'
-    OUTPUT_FILENAME = '../cadnano-files/carbs_output/PFD_tripod_2017.gsd'
-
-    doc.readFile(INPUT_FILENAME);
-
-    #Parse the structure for simulation
-    new_origami      = Origami()
-    new_origami.part = doc.activePart()
-    new_origami.list_oligos()
-    new_origami.initialize_nucleotide_matrix()
-    new_origami.find_skips()
-    new_origami.create_oligos_list()
-    new_origami.get_connections()
-    new_origami.assign_nucleotide_types()
-    new_origami.incorporate_skips()
-    new_origami.assign_nucleotide_connections()
-    new_origami.cluster_into_bodies()
-    new_origami.parse_soft_connections()
-
-    #Prepare the simulation
-    new_simulation         = RigidBodySimulation()
-    new_simulation.origami = new_origami
-    new_simulation.initialize_relax_md()
-    new_simulation.initialize_particles()
-    new_simulation.create_rigid_bodies()
-    new_simulation.create_bonds()
-    new_simulation.set_harmonic_bonds()
-    new_simulation.set_lj_potentials()
-    new_simulation.dump_settings(OUTPUT_FILENAME)
-    new_simulation.run(1e6)
-
-if __name__ == "__main__":
-  main()
