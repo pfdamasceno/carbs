@@ -45,16 +45,16 @@ class Origami:
         self.vh_vh_crossovers       = None   # Given vh1, vh2, vh_vh_crossovers[vh_1][vh_2] is the number of xovers between them
         self.long_range_connections = {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
         self.short_range_connections= {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
-        self.soft_connections       = {}     # Dict of pointers referring to nucleotides separated by skip
+        self.skip_connections       = {}     # Dict of pointers referring to nucleotides separated by skip
 
         #Distance constraints
         self.crossover_distance      = 2.0   # Distance in Angstrom
 
-    def parse_soft_connections(self):
+    def parse_skip_connections(self):
         self.inter_rigid_body_connections = set()
         self.inter_nucleotide_connections = set()
 
-        for pointer_1, pointer_2 in self.soft_connections.items():
+        for pointer_1, pointer_2 in self.skip_connections.items():
             vh_1, index_1, is_fwd_1 = pointer_1
             vh_2, index_2, is_fwd_2 = pointer_2
 
@@ -168,7 +168,7 @@ class Origami:
                     continue
 
                 self.nucleotide_type_matrix[vh][idx].rigid_connections = []
-                self.nucleotide_type_matrix[vh][idx].soft_connections  = []
+                self.nucleotide_type_matrix[vh][idx].skip_connections  = []
 
                 #Get the type for nucleotide (ssDNA or dsDNA?)
                 type_1 = self.nucleotide_type_matrix[vh][idx].type
@@ -187,17 +187,17 @@ class Origami:
                     if type_1*type_2: # both types are DSNucleotide, make the connection RIGID
                         self.nucleotide_type_matrix[vh][idx].rigid_connections.append(self.nucleotide_type_matrix[vh][idx+1])
                     else: # at least one is SSNucleotide, make a soft connection either in the fwd or rev direction
-                        self.nucleotide_type_matrix[vh][idx].soft_connections.append(self.nucleotide_type_matrix[vh][idx+1])
+                        self.nucleotide_type_matrix[vh][idx].skip_connections.append(self.nucleotide_type_matrix[vh][idx+1])
 
                         #Pointer 2
                         pointer2_rev = (vh, idx+1, 0)
                         pointer2_fwd = (vh, idx+1, 1)
 
                         if pointer1_fwd in self.short_range_connections.keys() and self.short_range_connections[pointer1_fwd] == pointer2_fwd:
-                            self.soft_connections[pointer1_fwd] = pointer2_fwd
+                            self.skip_connections[pointer1_fwd] = pointer2_fwd
 
                         elif self.short_range_connections[pointer2_rev] == pointer1_rev: #ssDNA connection is in the reverse direction
-                            self.soft_connections[pointer2_rev] = pointer1_rev
+                            self.skip_connections[pointer2_rev] = pointer1_rev
 
                 # Calculate connections between idx and previous idx, if existent
                 if idx-1 >= 0 \
@@ -209,16 +209,16 @@ class Origami:
                     if type_1*type_2:
                         self.nucleotide_type_matrix[vh][idx].rigid_connections.append(self.nucleotide_type_matrix[vh][idx-1])
                     else:
-                        self.nucleotide_type_matrix[vh][idx].soft_connections.append(self.nucleotide_type_matrix[vh][idx-1])
+                        self.nucleotide_type_matrix[vh][idx].skip_connections.append(self.nucleotide_type_matrix[vh][idx-1])
 
                         pointer2_fwd = (vh, idx-1, 1)
                         pointer2_rev = (vh, idx-1, 0)
 
                         if pointer2_fwd in self.short_range_connections.keys() and self.short_range_connections[pointer2_fwd] == pointer1_fwd:
-                            self.soft_connections[pointer2_fwd] = pointer1_fwd
+                            self.skip_connections[pointer2_fwd] = pointer1_fwd
 
                         elif self.short_range_connections[pointer1_rev] == pointer2_rev:
-                            self.soft_connections[pointer1_rev] = pointer2_rev
+                            self.skip_connections[pointer1_rev] = pointer2_rev
 
         #2. Add short range connections that are not adjacent in sequence due to skips
         for pointer1, pointer2 in self.short_range_connections.items():
@@ -228,9 +228,9 @@ class Origami:
             #If the bases are not adjacent in sequence, add the connections to soft connections
             if abs(idx1-idx2) > 1:
                 #Add the connections first in nucleotide type matrix
-                self.nucleotide_type_matrix[vh1][idx1].soft_connections.append(self.nucleotide_type_matrix[vh2][idx2])
-                self.nucleotide_type_matrix[vh1][idx1].soft_connections.append(self.nucleotide_type_matrix[vh2][idx2])
-                self.soft_connections[pointer1] = pointer2
+                self.nucleotide_type_matrix[vh1][idx1].skip_connections.append(self.nucleotide_type_matrix[vh2][idx2])
+                self.nucleotide_type_matrix[vh1][idx1].skip_connections.append(self.nucleotide_type_matrix[vh2][idx2])
+                self.skip_connections[pointer1] = pointer2
 
         #3. Add the crossover connections
         for pointer_1, pointer_2 in self.crossovers.items():
@@ -244,22 +244,22 @@ class Origami:
                 self.nucleotide_type_matrix[vh_1][index_1].rigid_connections.append(self.nucleotide_type_matrix[vh_2][index_2])
                 self.nucleotide_type_matrix[vh_2][index_2].rigid_connections.append(self.nucleotide_type_matrix[vh_1][index_1])
             else: # make soft otherwise
-                self.nucleotide_type_matrix[vh_1][index_1].soft_connections.append(self.nucleotide_type_matrix[vh_2][index_2])
-                self.nucleotide_type_matrix[vh_2][index_2].soft_connections.append(self.nucleotide_type_matrix[vh_1][index_1])
+                self.nucleotide_type_matrix[vh_1][index_1].skip_connections.append(self.nucleotide_type_matrix[vh_2][index_2])
+                self.nucleotide_type_matrix[vh_2][index_2].skip_connections.append(self.nucleotide_type_matrix[vh_1][index_1])
 
                 #Add the connection to soft connection list
-                self.soft_connections[pointer_1] = pointer_2
+                self.skip_connections[pointer_1] = pointer_2
 
         #4. Add long-range connections (always soft!)
         for pointer_1, pointer_2 in self.long_range_connections.items():
             (vh_1, index_1, is_fwd_1) = pointer_1
             (vh_2, index_2, is_fwd_2) = pointer_2
 
-            self.nucleotide_type_matrix[vh_1][index_1].soft_connections.append(self.nucleotide_type_matrix[vh_2][index_2])
-            self.nucleotide_type_matrix[vh_2][index_2].soft_connections.append(self.nucleotide_type_matrix[vh_1][index_1])
+            self.nucleotide_type_matrix[vh_1][index_1].skip_connections.append(self.nucleotide_type_matrix[vh_2][index_2])
+            self.nucleotide_type_matrix[vh_2][index_2].skip_connections.append(self.nucleotide_type_matrix[vh_1][index_1])
 
             #Add the connection to soft connection list
-            self.soft_connections[pointer_1] = pointer_2
+            self.skip_connections[pointer_1] = pointer_2
 
     def get_connections(self):
         '''
@@ -635,7 +635,7 @@ class DSNucleotide:
 
         #Connections
         self.rigid_connections  = []                   # List of rigid connections
-        self.soft_connections   = []                   # List of soft connections
+        self.skip_connections   = []                   # List of soft connections
 
 class SSNucleotide:
     '''
@@ -650,7 +650,7 @@ class SSNucleotide:
 
         #Connections
         self.rigid_connections = []                   # List of rigid connections
-        self.soft_connections  = []                   # List of soft connections
+        self.skip_connections  = []                   # List of soft connections
 
 class Nucleotide:
     '''

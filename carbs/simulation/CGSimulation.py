@@ -1,3 +1,7 @@
+from hoomd import *
+from hoomd import md
+import numpy as np
+
 class CGSimulation:
     '''
     1-bead/bp CG simulation class for Cadnano designs
@@ -54,7 +58,7 @@ class CGSimulation:
 
         nucl_positions = [self.origami.get_nucleotide(pointer).position[1] \
              for chain in oligos_list for strand in chain for pointer in strand \
-             if self.origami.get_nucleotide(pointer).skip]
+             if not self.origami.get_nucleotide(pointer).skip]
 
         self.num_nucleotides = len(nucl_positions)
 
@@ -75,7 +79,7 @@ class CGSimulation:
                     if not self.origami.get_nucleotide_type(pointer).skip:
                         self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
                         self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
-                    i += 1
+                        i += 1
 
         #random initial velocity
         self.snapshot.particles.velocity[:] = np.random.normal(0.0, np.sqrt(0.8 / 1.0), [self.snapshot.particles.N, 3]);
@@ -94,21 +98,23 @@ class CGSimulation:
 
         particle_sim_num = 0
         for chain in oligos_list:
-            flat_chain = np.concatenate(chain)
-            this_bead == None
-            next_bead == None
-            for counter in range(len(flat_chain) - 1):
-                if not self.origami.get_nucleotide_type(flat_chain[counter]).skip:
-                    this_bead = particle_sim_num
-                    particle_sim_num += 1
-                if not self.origami.get_nucleotide_type(flat_chain[counter + 1]).skip:
-                    next_bead = this_bead + 1
-                if this_bead != None and next_bead != None:
-                    self.system.bonds.add('interbead', this_bead, next_bead)
-                    this_bead == None
-                    next_bead == None
-            # end of chain. next chain starts at another bead:
-            particle_sim_num += 1
+            for strand in chain:
+                strand_array = np.asarray(strand)
+
+                this_bead = None
+                next_bead = None
+                for p in range(len(strand_array) - 1):
+                    if not self.origami.get_nucleotide_type(strand_array[p]).skip:
+                        this_bead = particle_sim_num
+                        particle_sim_num += 1
+                    if not self.origami.get_nucleotide_type(strand_array[p + 1]).skip:
+                        next_bead = this_bead + 1
+                    if this_bead != None and next_bead != None:
+                        self.system.bonds.add('interbead', this_bead, next_bead)
+                        this_bead = None
+                        next_bead = None
+                # end of chain. next chain starts at another bead:
+                particle_sim_num += 1
 
 
     def create_other_bonds(self):
@@ -124,13 +130,14 @@ class CGSimulation:
         for c, chain in enumerate(oligos_list):
             for s, strand in enumerate(chain):
                 for p, pointer in enumerate(strand):
-                    this_nucleotide = self.origami.get_nucleotide(pointer)
+                    this_nucleotide         = self.origami.get_nucleotide(pointer)
                     this_nucleotide_sim_num = this_nucleotide.simulation_nucleotide_num
-                    is_dsDNA = self.origami.get_nucleotide_type(pointer).type
-                    if not is_dsDNA: #all the following bonds are only relevant for dsDNA
+                    is_dsDNA                = self.origami.get_nucleotide_type(pointer).type
+                    is_skip                 = self.origami.get_nucleotide_type(strand_array[p]).skip
+                    if not is_dsDNA or is_skip : # all the following bonds are only relevant for dsDNA
                         continue
 
-                    #1. calculate watson_crick pair and assing bonds for this nucleotide
+                    #1. calculate watson_crick pair and assign bonds for this nucleotide
                     [vh_0, index_0, is_fwd_0] = pointer
                     wc_pair_pointer           = [vh_0, index_0, 1 - is_fwd_0]
                     wc_pair_sim_num           = self.origami.get_nucleotide(wc_pair_pointer).simulation_nucleotide_num

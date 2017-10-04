@@ -34,7 +34,7 @@ def main():
     new_origami.incorporate_skips()
     new_origami.assign_nucleotide_connections()
     new_origami.cluster_into_bodies()
-    new_origami.parse_soft_connections()
+    new_origami.parse_skip_connections()
 
     #Start relaxation simulation
     if RELAX == True:
