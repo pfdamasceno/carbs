@@ -27,7 +27,7 @@ class Origami:
 
         #Soft connections
         self.inter_rigid_body_connections  = []
-        self.inter_nucleotide__connections = []
+        self.inter_nucleotide_connections  = []
 
         #Cadnano parameters
         self.part                   = None
