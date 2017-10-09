@@ -590,13 +590,13 @@ class Origami:
                     raise Exception('Second nucleotide in design is a skip!!')
 
                 #Calculate the vectors to be used for quaternion calculation
-                base_vector_0 = axis_0 - backbone_0 # along watson_crick direction
-                axis_vector_0 = axis_1 - axis_0     # along double-helix axis direction
-                orth_vector_0 = np.cross(base_vector_0, axis_vector_0)
+                base_vector_0  = axis_0 - backbone_0 # along watson_crick direction
+                axial_vector_0 = axis_1 - axis_0     # along double-helix axis direction
+                orth_vector_0  = np.cross(base_vector_0, axial_vector_0)
 
                 # return 3 orthogonal vectors in nucleotide, for quaternion
-                vect_list_0 = (base_vector_0/np.linalg.norm(base_vector_0), \
-                               axis_vector_0/np.linalg.norm(axis_vector_0), \
+                vect_list_0 = (axial_vector_0/np.linalg.norm(axial_vector_0), \
+                               base_vector_0/np.linalg.norm(base_vector_0), \
                                orth_vector_0/np.linalg.norm(orth_vector_0))
 
                 for p, pointer in enumerate(self.oligos_list[o][s]):
@@ -607,9 +607,9 @@ class Origami:
                         [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, p + 1)
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
-                        base_vector_1 = axis_1 - backbone_1
-                        axis_vector_1 = axis_2 - axis_1
-                        orth_vector_1 = np.cross(base_vector_1, axis_vector_1)
+                        base_vector_1  = axis_1 - backbone_1
+                        axial_vector_1 = axis_2 - axis_1
+                        orth_vector_1  = np.cross(base_vector_1, axial_vector_1)
 
                     #last oligo in strand chain, calculate vectors wrt to previous nucleotide
                 elif p == len(oligos_list[o][s]) - 1:
@@ -617,21 +617,21 @@ class Origami:
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
                         base_vector_1 = axis_1 - backbone_1
-                        axis_vector_1 = - (axis_2 - axis_1)
-                        orth_vector_1 = np.cross(base_vector_1, axis_vector_1)
+                        axial_vector_1 = - (axis_2 - axis_1)
+                        orth_vector_1 = np.cross(base_vector_1, axial_vector_1)
 
-                    vect_list_1 = (base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
-                                   axis_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axis_vector_1+np.array([0.00001,0,0])), \
+                    vect_list_1 = (axial_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.00001,0,0])), \
+                                   base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
                                    orth_vector_1+np.array([0.00001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.00001,0,0])))
 
-                    nucl = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
-                    nucl.vectors_body_frame  = vect_list_1
-                    nucl.points_global_frame = [backbone_1, axis_1, orth_vector_1 + backbone_1]
-                    nucl_quaternion          = vectortools.find_quaternion_from_2_axes(vect_list_0, vect_list_1)
-                    nucl.quaternion          = [nucl_quaternion.w, \
-                                                nucl_quaternion.x, \
-                                                nucl_quaternion.y, \
-                                                nucl_quaternion.z]
+                    nucl                      = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
+                    nucl.vectors_body_frame   = vect_list_1
+                    nucl.vectors_global_frame = [axis_1, backbone_1, orth_vector_1 + backbone_1]
+                    nucl_quaternion           = vectortools.find_quaternion_from_2_axes(vect_list_0, vect_list_1)
+                    nucl.quaternion           = [nucl_quaternion.w, \
+                                                 nucl_quaternion.x, \
+                                                 nucl_quaternion.y, \
+                                                 nucl_quaternion.z]
 
 class DSNucleotide:
     '''
@@ -677,8 +677,9 @@ class Nucleotide:
         self.skip                         = False     # Skip value for the nucleotide
 
         self.quaternion                   = None      # quaternion orientation for this nucleotide
-        self.vectors_body_frame           = None      # orthogonal vectors in the body reference frame for quaternion calculation
-        self.position                     = None      # Nucleotide position
+        self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = WC pair, axial, orthogonal)
+        self.vectors_global_frame         = None      # non-normalized vectors referring to the position of the backbone, axis, and orthogonal vector
+        self.position                     = None      # Nucleotide positions for axis particle [0] and backbone [1]
 
         # Body / simulation variables
         self.body                         = None      # body (class) this nucleotide belongs to

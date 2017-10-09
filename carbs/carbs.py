@@ -48,7 +48,7 @@ def main():
         relax_simulation.set_lj_potentials()
         relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
         relax_simulation.run(1e1)
-        relax_simulation.update_positions()
+        relax_simulation.update_positions_and_quaternions()
         relax_simulation.save_to_pickle(PICKLE_FILE)
 
     #Start coarse-grained simulation

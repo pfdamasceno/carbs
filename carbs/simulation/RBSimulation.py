@@ -179,8 +179,11 @@ class RigidBodySimulation:
                     nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
                     if nucleotide != None:
                         simulation_num = delta + nucleotide.simulation_nucleotide_num
+                        # update backbone position
                         nucleotide.position[1] = self.system.particles[simulation_num].position
+                        # update nucleotide quaternion
                         nucleotide.quaternion  = self.system.particles[simulation_num].orientation
+                        # update axis particle position
 
 
     def save_to_pickle(self, filename):
