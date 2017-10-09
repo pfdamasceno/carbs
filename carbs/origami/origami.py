@@ -464,21 +464,13 @@ class Origami:
             else:
                 self.long_range_connections[conn_pointer_1] = conn_pointer_2
 
-    def get_nucleotide(self, pointers):
+    def get_nucleotide(self, pointer):
         '''
         Given a tuple of pointers in the form [vh, index, is_fwd],
         Returns the global nucleotide referent to the pointers
         '''
-        [vh, index, is_fwd] = pointers
+        [vh, index, is_fwd] = pointer
         return self.nucleotide_matrix[vh][index][is_fwd]
-
-    def get_nucleotide_type(self, pointers):
-        '''
-        Given a tuple of pointers in the form [vh, index, is_fwd],
-        Returns the global nucleotide referent to the pointers
-        '''
-        [vh, index, is_fwd] = pointers
-        return self.nucleotide_type_matrix[vh][index]
 
     def create_strand_list_and_populate_nucleotide_matrix(self, oligo):
         '''
@@ -563,58 +555,78 @@ class Origami:
         distance = np.linalg.norm(pos1 - pos2)
         return distance
 
-    def populate_nucleotide_geometries(self):
+    def calculate_positions_from_quaternions(self):
         '''
-        Given an list of list of strands, fills the geometry-related nucleotide
-        attributes such as the vector directions and quaternions
+        Given a set of nucleotides with updated quaternions
+        (e.g. after a Rigid Body simulation), update the position
+        of the 3 orthogonal vectors used for CG simulation
         '''
+        for o, oligo in enumerate(self.oligos_list):
+            for s, strand in enumerate(oligo):
+                for n, nucl in enumerate(self.oligos_list[o][s]):
+                    vect_list_init = nucl.vectors_body_frame
+                    quaternion = nucl.quaternion
 
+
+    def calculate_quaternions_from_positions(self):
+        '''
+        Given an list of list of strands, calculates the quaternion
+        for each nucleotide wrt the very first nucleotide in oligos_list
+        for o, oligo in enumerate(self.oligos_list):
+        '''
         for o, oligo in enumerate(self.oligos_list):
             for s, strand in enumerate(oligo):
 
-                [vh_0, index_0, is_fwd_0] = self.oligos_list_to_nucleotide_info(0, 0, 0)
-                [vh_1, index_1, is_fwd_1] = self.oligos_list_to_nucleotide_info(0, 0, 1)
+                [vh_0, index_0, is_fwd_0] = self.oligos_list_to_nucleotide_info(0, 0, 0) # very first nucleotide
+                [vh_1, index_1, is_fwd_1] = self.oligos_list_to_nucleotide_info(0, 0, 1) # second nucleotide
 
                 [axis_0, backbone_0] = self.nucleotide_matrix[vh_0][index_0][is_fwd_0].position
                 [axis_1, backbone_1] = self.nucleotide_matrix[vh_1][index_1][is_fwd_1].position
 
-                #Calculate the vectors
-                base_vector_0     = axis_0     - backbone_0
-                backbone_vector_0 = backbone_1 - backbone_0
+                if self.get_nucleotide([vh_0, index_0, is_fwd_0]).skip == True:
+                    raise Exception('First nucleotide in design is a skip!!')
 
-                aux_vector_a_0 = np.cross(base_vector_0, backbone_vector_0)
-                aux_vector_b_0 = np.cross(aux_vector_a_0, base_vector_0)
+                if self.get_nucleotide([vh_1, index_1, is_fwd_1]).skip == True:
+                    raise Exception('Second nucleotide in design is a skip!!')
+
+                #Calculate the vectors to be used for quaternion calculation
+                base_vector_0 = axis_0 - backbone_0 # along watson_crick direction
+                axis_vector_0 = axis_1 - axis_0     # along double-helix axis direction
+                orth_vector_0 = np.cross(base_vector_0, axis_vector_0)
 
                 # return 3 orthogonal vectors in nucleotide, for quaternion
                 vect_list_0 = (base_vector_0/np.linalg.norm(base_vector_0), \
-                             aux_vector_a_0/np.linalg.norm(aux_vector_a_0), \
-                             aux_vector_b_0/np.linalg.norm(aux_vector_b_0))
+                               axis_vector_0/np.linalg.norm(axis_vector_0), \
+                               orth_vector_0/np.linalg.norm(orth_vector_0))
 
-                for n, nucl in enumerate(self.oligos_list[o][s]):
-                    [vh_1, index_1, is_fwd_1] = self.oligos_list_to_nucleotide_info( o, s, n)
+                for p, pointer in enumerate(self.oligos_list[o][s]):
+                    [vh_1, index_1, is_fwd_1] = self.oligos_list_to_nucleotide_info( o, s, p)
                     [axis_1, backbone_1]      = self.nucleotide_matrix[vh_1][index_1][is_fwd_1].position
 
-                    if n < len(self.oligos_list[o][s]) - 1:
-                        [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, n + 1)
+                    if p < len(self.oligos_list[o][s]) - 1:
+                        [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, p + 1)
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
-                        base_vector_1     = axis_1     - backbone_1
-                        backbone_vector_1 = backbone_2 - backbone_1
-                    elif n == len(oligos_list[o][s]) - 1:
-                        [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, n - 1)
-                        [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
-                        base_vector_1     = axis_1 - backbone_1
-                        backbone_vector_1 = - (backbone_2 - backbone_1)
+                        base_vector_1 = axis_1 - backbone_1
+                        axis_vector_1 = axis_2 - axis_1
+                        orth_vector_1 = np.cross(base_vector_1, axis_vector_1)
 
-                    aux_vector_a_1 = np.cross(base_vector_1, backbone_vector_1)
-                    aux_vector_b_1 = np.cross(aux_vector_a_1, base_vector_1)
+                    #last oligo in strand chain, calculate vectors wrt to previous nucleotide
+                elif p == len(oligos_list[o][s]) - 1:
+                        [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, p - 1)
+                        [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
+
+                        base_vector_1 = axis_1 - backbone_1
+                        axis_vector_1 = - (axis_2 - axis_1)
+                        orth_vector_1 = np.cross(base_vector_1, axis_vector_1)
+
                     vect_list_1 = (base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
-                                 aux_vector_a_1+np.array([0.00001,0,0])/np.linalg.norm(aux_vector_a_1+np.array([0.00001,0,0])), \
-                                 aux_vector_b_1+np.array([0.00001,0,0])/np.linalg.norm(aux_vector_b_1+np.array([0.00001,0,0])))
+                                   axis_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axis_vector_1+np.array([0.00001,0,0])), \
+                                   orth_vector_1+np.array([0.00001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.00001,0,0])))
 
                     nucl = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
                     nucl.vectors_body_frame  = vect_list_1
-                    nucl.points_global_frame = [backbone_1, axis_1, aux_vector_a_1 + backbone_1]
+                    nucl.points_global_frame = [backbone_1, axis_1, orth_vector_1 + backbone_1]
                     nucl_quaternion          = vectortools.systemQuaternion(vect_list_0, vect_list_1)
                     nucl.quaternion          = [nucl_quaternion.w, \
                                                 nucl_quaternion.x, \
