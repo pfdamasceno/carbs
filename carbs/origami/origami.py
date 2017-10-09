@@ -555,17 +555,17 @@ class Origami:
         distance = np.linalg.norm(pos1 - pos2)
         return distance
 
-    def calculate_positions_from_quaternions(self):
-        '''
-        Given a set of nucleotides with updated quaternions
-        (e.g. after a Rigid Body simulation), update the position
-        of the 3 orthogonal vectors used for CG simulation
-        '''
-        for o, oligo in enumerate(self.oligos_list):
-            for s, strand in enumerate(oligo):
-                for n, nucl in enumerate(self.oligos_list[o][s]):
-                    vect_list_init = nucl.vectors_body_frame
-                    quaternion = nucl.quaternion
+    # def calculate_positions_from_quaternions(self):
+    #     '''
+    #     Given a set of nucleotides with updated quaternions
+    #     (e.g. after a Rigid Body simulation), update the position
+    #     of the 3 orthogonal vectors used for CG simulation
+    #     '''
+    #     for o, oligo in enumerate(self.oligos_list):
+    #         for s, strand in enumerate(oligo):
+    #             for n, nucl in enumerate(self.oligos_list[o][s]):
+    #                 vect_list_init = nucl.vectors_body_frame
+    #                 quaternion = nucl.quaternion
 
 
     def calculate_quaternions_from_positions(self):
@@ -595,8 +595,8 @@ class Origami:
                 orth_vector_0  = np.cross(base_vector_0, axial_vector_0)
 
                 # return 3 orthogonal vectors in nucleotide, for quaternion
-                vect_list_0 = (axial_vector_0/np.linalg.norm(axial_vector_0), \
-                               base_vector_0/np.linalg.norm(base_vector_0), \
+                vect_list_0 = (base_vector_0/np.linalg.norm(base_vector_0), \
+                               axial_vector_0/np.linalg.norm(axial_vector_0), \
                                orth_vector_0/np.linalg.norm(orth_vector_0))
 
                 for p, pointer in enumerate(self.oligos_list[o][s]):
@@ -612,7 +612,7 @@ class Origami:
                         orth_vector_1  = np.cross(base_vector_1, axial_vector_1)
 
                     #last oligo in strand chain, calculate vectors wrt to previous nucleotide
-                elif p == len(oligos_list[o][s]) - 1:
+                    elif p == len(self.oligos_list[o][s]) - 1:
                         [vh_2, index_2, is_fwd_2] = self.oligos_list_to_nucleotide_info(o, s, p - 1)
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
@@ -620,8 +620,8 @@ class Origami:
                         axial_vector_1 = - (axis_2 - axis_1)
                         orth_vector_1 = np.cross(base_vector_1, axial_vector_1)
 
-                    vect_list_1 = (axial_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.00001,0,0])), \
-                                   base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
+                    vect_list_1 = (base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
+                                   axial_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.00001,0,0])), \
                                    orth_vector_1+np.array([0.00001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.00001,0,0])))
 
                     nucl                      = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
@@ -677,8 +677,7 @@ class Nucleotide:
         self.skip                         = False     # Skip value for the nucleotide
 
         self.quaternion                   = None      # quaternion orientation for this nucleotide
-        self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = WC pair, axial, orthogonal)
-        self.vectors_global_frame         = None      # non-normalized vectors referring to the position of the backbone, axis, and orthogonal vector
+        self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = along WC pairing, axial, orthogonal)
         self.position                     = None      # Nucleotide positions for axis particle [0] and backbone [1]
 
         # Body / simulation variables

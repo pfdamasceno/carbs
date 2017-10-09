@@ -22,8 +22,13 @@ class CGSimulation:
 
         self.snapshot                = None
 
-        self.particle_types          = ["ssDNA", "dsDNA"]
-
+        self.particle_types          = ['backbone','sidechain','aux']
+        self.bond_types              = ['backbone','aux_sidechain']
+        self.dihedral_types          = ['dihedral1', \
+                                        'dihedral21',\
+                                        'dihedral22',\
+                                        'dihedral31',\
+                                        'dihedral32']
         #Rigid/soft bodies from Origami structure
         self.num_dsDNA_particles     = 0
         self.num_ssDNA_particles     = 0
@@ -60,16 +65,22 @@ class CGSimulation:
              for chain in oligos_list for strand in chain for pointer in strand \
              if not self.origami.get_nucleotide(pointer).skip]
 
+        nucl_quaternions = [self.origami.get_nucleotide(pointer).quaternion \
+             for chain in oligos_list for strand in chain for pointer in strand \
+             if not self.origami.get_nucleotide(pointer).skip]
+
         self.num_nucleotides = len(nucl_positions)
 
-        self.snapshot = data.make_snapshot(N = self.num_nucleotides,
-                                          box = data.boxdim(Lx=120, Ly=120, Lz=120),
+        self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
+                                          box            = data.boxdim(Lx=120, Ly=120, Lz=120),
                                           particle_types = self.particle_types,
-                                          bond_types = ['interbead','watson_crick', 'cross_1', 'cross_2'],
-                                          dihedral_types = ['dihedral']);
+                                          bond_types     = self.bond_types,
+                                          dihedral_types = self.dihedral_types);
 
         self.snapshot.particles.position[:]       = nucl_positions
+        self.snapshot.particles.orientation[:]    = nucl_quaternions
         self.snapshot.particles.moment_inertia[:] = [[1., 1., 1.]]
+
 
         #record particle types and update simulation_nucleotide_num
         i = 0

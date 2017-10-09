@@ -1,6 +1,7 @@
 from hoomd import *
 from hoomd import md
 import numpy as np
+from utils import vectortools
 
 class RigidBodySimulation:
     '''
@@ -179,12 +180,34 @@ class RigidBodySimulation:
                     nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
                     if nucleotide != None:
                         simulation_num = delta + nucleotide.simulation_nucleotide_num
-                        # update backbone position
-                        nucleotide.position[1] = self.system.particles[simulation_num].position
-                        # update nucleotide quaternion
-                        nucleotide.quaternion  = self.system.particles[simulation_num].orientation
-                        # update axis particle position
 
+                        #1: update backbone position
+                        nucleotide.position[1] = self.system.particles[simulation_num].position
+
+                        #2: update nucleotide quaternion
+                        nucl_quat_new = self.system.particles[simulation_num].orientation
+                        nucl_quat_new = vectortools.quat2Quat(nucl_quat_new)
+                        nucl_quat_old = nucleotide.quaternion
+                        nucl_quat_old = vectortools.quat2Quat(nucl_quat_old)
+                        updated_quat = nucl_quat_new * nucl_quat_old
+                        updated_quat = [updated_quat.w, \
+                                        updated_quat.x, \
+                                        updated_quat.y, \
+                                        updated_quat.z]
+                        nucleotide.quaternion = updated_quat
+
+                        #3: update vectors_body_frame
+                        # those were already rotated w.r.t. first-ever nucleotide (defined as 1,0,0,0)
+                        # therefore we only need to rotate the amount gained by the RB simulation
+                        nucl_vectors_body_frame_old = nucleotide.vectors_body_frame
+                        nucl_vectors_body_frame_new = \
+                           [vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[0], nucl_quat_new),\
+                            vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[1], nucl_quat_new),\
+                            vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[2], nucl_quat_new)]
+                        nucleotide.vectors_body_frame = nucl_vectors_body_frame_new
+
+                        #4: update axis particle position
+                        nucleotide.position[0] = np.array(nucl_vectors_body_frame_new[0]) + nucleotide.position[1]
 
     def save_to_pickle(self, filename):
         '''
