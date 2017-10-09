@@ -57,10 +57,13 @@ class RigidBodySimulation:
         self.rigid_bodies_comass_positions -= self.center_of_mass
         self.rigid_bodies_moment_inertia    = [body.moment_inertia for body in self.rigid_bodies]
 
+        self.rigid_bodies_mass              = [body.mass for body in self.rigid_bodies]
+
         if self.num_soft_bodies > 0:
             self.soft_bodies_comass_positions  = [body.comass_position for body in self.soft_bodies]
             self.soft_bodies_comass_positions -= self.center_of_mass
             self.soft_bodies_moment_inertia    = [body.moment_inertia for body in self.soft_bodies]
+            self.soft_bodies_mass              = [body.mass for body in self.soft_bodies]
 
         self.body_types  = ["rigid_body"+"_"+str(i) for i in range(self.num_rigid_bodies)]
         self.body_types += ["nucleotides"]
@@ -73,9 +76,11 @@ class RigidBodySimulation:
         if self.num_soft_bodies > 0:
             self.snapshot.particles.position[:]       = np.vstack((self.rigid_bodies_comass_positions, self.soft_bodies_comass_positions))
             self.snapshot.particles.moment_inertia[:] = np.vstack((self.rigid_bodies_moment_inertia  , self.soft_bodies_moment_inertia))
+            self.snapshot.particles.mass[:]           = np.vstack((self.rigid_bodies_mass, self.soft_bodies_mass))
         else:
             self.snapshot.particles.position[:]       = np.vstack((self.rigid_bodies_comass_positions))
             self.snapshot.particles.moment_inertia[:] = np.vstack((self.rigid_bodies_moment_inertia))
+            self.snapshot.particles.mass[:]           = np.vstack((self.rigid_bodies_mass))
 
         #particle types
         for i in range(self.num_rigid_bodies):
@@ -150,7 +155,7 @@ class RigidBodySimulation:
         rigid     = group.rigid_center();
         non_rigid = group.nonrigid()
         combined  = group.union('combined',rigid,non_rigid)
-        md.integrate.langevin(group=combined, kT=0.4, seed=42);
+        md.integrate.langevin(group=combined, kT=4.4, seed=42);
 
     def dump_settings(self,output_fname,period):
         '''

@@ -50,7 +50,7 @@ def calculateMomentInertia(list_of_positions):
     '''
     Given a list of arrays containing particle positions (vector3)
     Return the moment of inertia (vector3) of the system of particles
-    Assumes equal masses
+    Assumes equal masses and total mass for the body == 1
     '''
     inertia = np.array([0., 0., 0.])
     center = calculateCoM(list_of_positions)
@@ -60,7 +60,7 @@ def calculateMomentInertia(list_of_positions):
         inertia = inertia + new_inertia
     #re-scale particle masses so that body is not hugely slow
     #this needs to be tested
-    # inertia /= p
+    inertia /= p
     return(inertia)
 
 ###############################

@@ -472,6 +472,14 @@ class Origami:
         [vh, index, is_fwd] = pointer
         return self.nucleotide_matrix[vh][index][is_fwd]
 
+    def get_nucleotide_type(self, pointer):
+        '''
+        Given a tuple of pointers in the form [vh, index, is_fwd],
+        Returns the global nucleotide type referent to the pointers
+        '''
+        [vh, index, is_fwd] = pointer
+        return self.nucleotide_type_matrix[vh][index]
+
     def create_strand_list_and_populate_nucleotide_matrix(self, oligo):
         '''
         Given an oligo, returns a list of strands,
@@ -696,6 +704,7 @@ class Body:
         self.comass_position   = None                 # position of body's center of mass
         self.comass_quaternion = None                 # quaternion of body's center of mass
         self.moment_inertia    = None                 # body's moment of intertia (calculated via vectortools)
+        self.mass              = None                 # body's mass (sum of number of nucleotides)
         self.nucleotide_types  = []                   # list of nucleotide types belonging to this body
         self.nucleotides       = []                   # list of nucleotides belonging to this body
         self.vhs               = []                   # list of vhs belonging to this body
@@ -716,5 +725,6 @@ class Body:
         # extract the position of backbone bead (1) acquired from cadnano
         positions = [nucleotide.position[1] for nucleotide in self.nucleotides]
         self.comass_position    = vectortools.calculateCoM(positions)
-        self.moment_inertia     = vectortools.calculateMomentInertia(positions)
+        self.mass               = float(len(positions))
+        self.moment_inertia     = vectortools.calculateMomentInertia(positions) * self.mass
         self.comass_quaternion  = [1., 0., 0., 0.]
