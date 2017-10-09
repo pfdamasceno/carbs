@@ -167,9 +167,9 @@ class RigidBodySimulation:
         self.set_harmonic_bonds(10.)
         run(100000)
 
-    def update_positions(self):
+    def update_positions_and_quaternions(self):
         '''
-        update all particles positions after relaxation
+        update all particles positions (to be used after relaxation)
         '''
         # delta is needed because the 1st n bodies will be the com of the rigid blocks
         delta = self.num_rigid_bodies
@@ -180,6 +180,8 @@ class RigidBodySimulation:
                     if nucleotide != None:
                         simulation_num = delta + nucleotide.simulation_nucleotide_num
                         nucleotide.position[1] = self.system.particles[simulation_num].position
+                        nucleotide.quaternion  = self.system.particles[simulation_num].orientation
+
 
     def save_to_pickle(self, filename):
         '''
