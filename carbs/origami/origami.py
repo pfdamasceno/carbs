@@ -627,7 +627,7 @@ class Origami:
                     nucl = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
                     nucl.vectors_body_frame  = vect_list_1
                     nucl.points_global_frame = [backbone_1, axis_1, orth_vector_1 + backbone_1]
-                    nucl_quaternion          = vectortools.systemQuaternion(vect_list_0, vect_list_1)
+                    nucl_quaternion          = vectortools.find_quaternion_from_2_axes(vect_list_0, vect_list_1)
                     nucl.quaternion          = [nucl_quaternion.w, \
                                                 nucl_quaternion.x, \
                                                 nucl_quaternion.y, \

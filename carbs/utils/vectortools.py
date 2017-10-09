@@ -66,7 +66,11 @@ def calculateMomentInertia(list_of_positions):
 ###############################
 # Useful Quaternion Functions #
 ###############################
-def vectorQuaternion(u,v):
+def find_quaternion_from_2_vectors(u, v):
+    '''
+    Given 2 vectors (u, v), find the normalized quaternion
+    bringing one into the other
+    '''
     cross = np.cross(u,v)
     if np.dot(u, v) < -0.999999:
         orthogonal = findOrthogonal(u)
@@ -77,22 +81,26 @@ def vectorQuaternion(u,v):
     my_quaternion = quat.quaternion.normalized(my_quaternion)
     return(my_quaternion)
 
-def testQuaternion(u,my_quat):
+def rotate_vector_by_quaternion(u, my_quat):
+    '''
+    Given: a vector u and a quaternion 'my_quat'
+    Returns: the u' = my_quat * u * (my_quat)^-1
+    '''
     rotated_vector = my_quat * quat.quaternion(*u) * np.conjugate(my_quat)
     return([rotated_vector.x,rotated_vector.y,rotated_vector.z])
 
-def systemQuaternion(lst1,lst2,matchlist=None):
+def find_quaternion_from_2_axes(axis_1, axis_2, matchlist=None):
     '''
-    from https://stackoverflow.com/questions/16648452/calculating-quaternion-for-transformation-between-2-3d-cartesian-coordinate-syst
-    Given 2 lists of 3 orthogonal vectors,
-    find the quaternion transformation bringing list2 into list1
+    answer from: https://stackoverflow.com/a/23760608/853243
+    Given 2 lists of 3 orthogonal vectors (axes),
+    find the quaternion transformation bringing axis_1 into axis_2
     '''
     if not matchlist:
-         matchlist=range(len(lst1))
+         matchlist=range(len(axis_1))
     M=np.matrix([[0,0,0],[0,0,0],[0,0,0]])
 
-    for i,coord1 in enumerate(lst1):
-         x=np.matrix(np.outer(coord1,lst2[matchlist[i]]))
+    for i,coord1 in enumerate(axis_1):
+         x=np.matrix(np.outer(coord1,axis_2[matchlist[i]]))
          M=M+x
 
     N11=float(M[0][:,0]+M[1][:,1]+M[2][:,2])
