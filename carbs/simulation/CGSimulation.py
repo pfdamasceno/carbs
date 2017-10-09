@@ -61,7 +61,7 @@ class CGSimulation:
         #Retrieve origami information
         oligos_list = self.origami.oligos_list
 
-        bkbone_positions = [self.origami.get_nucleotide(pointer).position[1] \
+        bkbone_positions = [self.origami.get_nucleotide(pointer).position[0] \
              for chain in oligos_list for strand in chain for pointer in strand \
              if not self.origami.get_nucleotide(pointer).skip]
 
@@ -72,7 +72,7 @@ class CGSimulation:
         self.num_nucleotides = len(bkbone_positions)
 
         self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
-                                          box            = data.boxdim(Lx=120, Ly=120, Lz=120),
+                                          box            = data.boxdim(Lx=120, Ly=120, Lz=300),
                                           particle_types = self.particle_types,
                                           bond_types     = self.bond_types,
                                           dihedral_types = self.dihedral_types);
