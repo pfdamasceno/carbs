@@ -563,19 +563,6 @@ class Origami:
         distance = np.linalg.norm(pos1 - pos2)
         return distance
 
-    # def calculate_positions_from_quaternions(self):
-    #     '''
-    #     Given a set of nucleotides with updated quaternions
-    #     (e.g. after a Rigid Body simulation), update the position
-    #     of the 3 orthogonal vectors used for CG simulation
-    #     '''
-    #     for o, oligo in enumerate(self.oligos_list):
-    #         for s, strand in enumerate(oligo):
-    #             for n, nucl in enumerate(self.oligos_list[o][s]):
-    #                 vect_list_init = nucl.vectors_body_frame
-    #                 quaternion = nucl.quaternion
-
-
     def calculate_quaternions_from_positions(self):
         '''
         Given an list of list of strands, calculates the quaternion

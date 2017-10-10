@@ -23,7 +23,7 @@ class CGSimulation:
         self.snapshot                = None
 
         self.particle_types          = ['backbone','sidechain','aux']
-        self.bond_types              = ['backbone','aux_sidechain']
+        self.bond_types              = ['backbone']
         self.dihedral_types          = ['dihedral1', \
                                         'dihedral21',\
                                         'dihedral22',\
@@ -61,7 +61,7 @@ class CGSimulation:
         #Retrieve origami information
         oligos_list = self.origami.oligos_list
 
-        bkbone_positions = [self.origami.get_nucleotide(pointer).position[0] \
+        bkbone_positions = [self.origami.get_nucleotide(pointer).position[1] \
              for chain in oligos_list for strand in chain for pointer in strand \
              if not self.origami.get_nucleotide(pointer).skip]
 
@@ -73,13 +73,14 @@ class CGSimulation:
 
         self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
                                           box            = data.boxdim(Lx=120, Ly=120, Lz=300),
-                                          particle_types = self.particle_types,
-                                          bond_types     = self.bond_types,
-                                          dihedral_types = self.dihedral_types);
+                                          particle_types =['backbone','sidechain','aux'],
+                                          bond_types     = self.bond_types
+                                          );
 
         self.snapshot.particles.position[:]       = bkbone_positions
         self.snapshot.particles.orientation[:]    = nucl_quaternions
         self.snapshot.particles.moment_inertia[:] = [[1., 1., 1.]]
+        # self.snapshot.particles.typeid[:] = [0];
 
         #record particle types and update simulation_nucleotide_num
         i = 0
@@ -87,7 +88,7 @@ class CGSimulation:
             for strand in chain:
                 for pointer in strand:
                     if not self.origami.get_nucleotide_type(pointer).skip:
-                        self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
+                        # self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
                         self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
                         i += 1
 
@@ -120,12 +121,28 @@ class CGSimulation:
                     if not self.origami.get_nucleotide_type(strand_array[p + 1]).skip:
                         next_bead = this_bead + 1
                     if this_bead != None and next_bead != None:
-                        self.system.bonds.add('interbead', this_bead, next_bead)
+                        self.system.bonds.add(self.bond_types[0], this_bead, next_bead)
                         this_bead = None
                         next_bead = None
                 # end of chain. next chain starts at another bead:
                 particle_sim_num += 1
 
+    def create_rigid_bonds(self):
+        '''
+        Create backbone-base and backbone-orthogonal rigid bonds in every particle
+        '''
+        oligos_list = self.origami.oligos_list
+        pointer_0   = oligos_list[0][0][0]
+        nucl_0      = self.origami.get_nucleotide(pointer_0)
+        nucl_0_vecs = np.array(nucl_0.vectors_body_frame)
+
+        rigid = md.constrain.rigid();
+
+        rigid.set_param(self.particle_types[0], \
+                        types=[self.particle_types[1], self.particle_types[2]], \
+                        positions = [1.0*nucl_0_vecs[0], 1.0*nucl_0_vecs[2]]); #magic numbers. Check !!!
+
+        rigid.create_bodies()
 
     def create_other_bonds(self):
         '''
@@ -208,10 +225,7 @@ class CGSimulation:
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('interbead', k=150.0 , r0=0.75);
-        self.harmonic.bond_coeff.set('watson_crick', k=150.0 , r0=2.25);
-        self.harmonic.bond_coeff.set('cross_1', k=150.0 , r0=2.37);
-        self.harmonic.bond_coeff.set('cross_2', k=150.0 , r0=2.37);
+        self.harmonic.bond_coeff.set('backbone', k=150.0 , r0=0.75);
 
     def set_dihedral_bonds(self):
         '''
@@ -226,9 +240,9 @@ class CGSimulation:
         dtable = md.dihedral.table(width = 1000)
         dtable.dihedral_coeff.set('dihedral', func=harmonic_angle, coeff=dict(kappa=80, theta0=-0.28))
 
-    def set_lj_potentials(self):
+    def set_wca_potentials(self):
         '''
-        Set LJ potentials
+        Set WCA potentials
         '''
         wca = md.pair.lj(r_cut=2.0**(1/6), nlist=self.nl)
         wca.set_params(mode='shift')
@@ -236,8 +250,15 @@ class CGSimulation:
 
         ########## INTEGRATION ############
         md.integrate.mode_standard(dt=0.003);
-        all = group.all()
-        md.integrate.langevin(group=all, kT=0.2, seed=42);
+        rigid = group.rigid_center();
+        md.integrate.langevin(group=rigid, kT=0.2, seed=42);
+
+    def fix_diameters(self):
+        for i in range(0, self.num_nucleotides):
+            self.system.particles[i].diameter = 0.75
+        for i in range(self.num_nucleotides, len(self.system.particles), 2):
+            self.system.particles[i].diameter = 0.5
+            self.system.particles[i + 1].diameter = 0.1
 
     def dump_settings(self,output_fname,period):
         '''

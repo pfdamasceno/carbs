@@ -18,7 +18,7 @@ def main():
     OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_6hb_skip_CG.gsd'
     PICKLE_FILE       = 'data/origami_relaxed.pckl'
 
-    RELAX = True
+    RELAX = False
 
     doc.readFile(INPUT_FILENAME);
 
@@ -59,12 +59,12 @@ def main():
         cg_simulation.initialize_cg_md()
         cg_simulation.initialize_particles()
         cg_simulation.initialize_system()
-        cg_simulation.create_bonds()
+        cg_simulation.create_adjacent_bonds()
         cg_simulation.set_harmonic_bonds()
         cg_simulation.set_dihedral_bonds()
         cg_simulation.set_lj_potentials()
-        cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1e3)
-        cg_simulation.run(1e5)
+        cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1)
+        cg_simulation.run(2)
 
 if __name__ == "__main__":
   main()
