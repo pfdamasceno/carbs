@@ -196,7 +196,10 @@ class CGSimulation:
             for idx in range(len(self.origami.nucleotide_matrix[vh])):
                 for is_fwd in range(2):
                     nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
-                    is_dsDNA   = self.origami.nucleotide_type_matrix[vh][idx].type
+                    if self.origami.nucleotide_type_matrix[vh][idx] == None:
+                        is_dsDNA = False
+                    else:
+                        is_dsDNA = self.origami.nucleotide_type_matrix[vh][idx].type
                     # check if single stranded DNA
                     if is_dsDNA == False or nucleotide.skip == True:
                         continue
@@ -239,7 +242,6 @@ class CGSimulation:
         '''
         wca = md.pair.lj(r_cut=2.0**(1/6), nlist=self.nl)
         wca.set_params(mode='shift')
-        # wca.pair_coeff.set(self.particle_types, self.particle_types, epsilon=1.0, sigma=0.75, r_cut=0.75*2**(1/6))
 
         wca.pair_coeff.set('backbone', 'backbone',   epsilon=1.0, sigma=0.750, r_cut=0.750*2**(1/6))
         wca.pair_coeff.set('backbone', 'sidechain',  epsilon=0.0, sigma=0.375, r_cut=0.375*2**(1/6))
@@ -252,7 +254,7 @@ class CGSimulation:
 
     def integration(self):
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.001);
+        md.integrate.mode_standard(dt=0.0001);
         rigid = group.rigid_center();
         md.integrate.langevin(group=rigid, kT=0.01, seed=42);
 

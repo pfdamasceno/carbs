@@ -13,9 +13,9 @@ def main():
     #Initialize cadnano
     app = cadnano.app()
     doc = app.document = Document()
-    INPUT_FILENAME    = '../../cadnano-files/PFD_2hb.json'
-    OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/PFD_2hb_rigid.gsd'
-    OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_2hb_CG.gsd'
+    INPUT_FILENAME    = '../../cadnano-files/PFD_6hb.json'
+    OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/PFD_6hb_rigid.gsd'
+    OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_6hb_CG.gsd'
     PICKLE_FILE       = 'data/origami_relaxed.pckl'
 
     RELAX = False
@@ -47,8 +47,8 @@ def main():
         relax_simulation.create_bonds()
         relax_simulation.set_initial_harmonic_bonds()
         relax_simulation.set_lj_potentials()
-        relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1e3)
-        relax_simulation.run(1e1)
+        relax_simulation.dump_settings(OUTPUT_FILENAME_1, 1)
+        relax_simulation.run(1)
         relax_simulation.update_positions_and_quaternions()
         relax_simulation.save_to_pickle(PICKLE_FILE)
 

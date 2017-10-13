@@ -11,27 +11,12 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-INPUT_FILENAME    = '../../cadnano-files/PFD_2hb.json'
-OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/PFD_2hb_rigid.gsd'
-OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_2hb_CG.gsd'
+INPUT_FILENAME    = '../../cadnano-files/PFD_6hb.json'
+OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/PFD_6hb_rigid.gsd'
+OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_6hb_CG.gsd'
 PICKLE_FILE       = 'data/origami_relaxed.pckl'
 
 doc.readFile(INPUT_FILENAME);
-
-#Parse the structure for simulation
-new_origami      = origami.Origami()
-new_origami.part = doc.activePart()
-new_origami.list_oligos()
-new_origami.initialize_nucleotide_matrix()
-new_origami.find_skips()
-new_origami.create_oligos_list()
-new_origami.get_connections()
-new_origami.assign_nucleotide_types()
-new_origami.incorporate_skips()
-new_origami.assign_nucleotide_connections()
-new_origami.cluster_into_bodies()
-new_origami.parse_skip_connections()
-new_origami.calculate_quaternions_from_positions()
 
 cg_simulation = CGSimulation.CGSimulation()
 cg_simulation.parse_origami_from_pickle(PICKLE_FILE)
