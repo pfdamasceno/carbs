@@ -13,9 +13,10 @@ def main():
     #Initialize cadnano
     app = cadnano.app()
     doc = app.document = Document()
-    INPUT_FILENAME    = '../../cadnano-files/PFD_6hb.json'
-    OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/PFD_6hb_rigid.gsd'
-    OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/PFD_6hb_CG.gsd'
+    FILENAME = 'PFD_2hb_loop'
+    INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
+    OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
+    OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
     PICKLE_FILE       = 'data/origami_relaxed.pckl'
 
     RELAX = False

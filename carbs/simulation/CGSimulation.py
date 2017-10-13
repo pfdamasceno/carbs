@@ -229,11 +229,11 @@ class CGSimulation:
             return(V, F)
 
         dtable = md.dihedral.table(width=1000)
-        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=50, theta0=-1.571)) #+Pi: why?
-        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=50, theta0=-0.598))
-        dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.559))
-        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.317 - np.pi)) #-Pi: why?
-        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.280))
+        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=500, theta0=-1.571)) #+Pi: why?
+        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=500, theta0=-0.598))
+        dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.559))
+        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.317 - np.pi)) #-Pi: why?
+        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.280))
 
 
     def set_wca_potentials(self):

@@ -11,7 +11,7 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_2hb_loop'
+FILENAME = 'PFD_6hb_xover'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
@@ -36,7 +36,7 @@ cg_simulation.set_dihedral_bonds()
 cg_simulation.set_wca_potentials()
 cg_simulation.integration()
 cg_simulation.fix_diameters()
-cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1)
+cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1000)
 
 
 
