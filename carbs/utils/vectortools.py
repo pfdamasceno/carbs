@@ -37,6 +37,21 @@ def orthogonal(u):
     orth /= np.linalg.norm(orth)  # normalize it
     return(orth)
 
+def dihedral(a, b, c, d):
+    ab     = a - b
+    cb     = c - b
+    cbm    = - cb
+    dc     = d - c
+    aa     = np.cross(ab, cbm)
+    bb     = np.cross(dc, cbm)
+    c_abcd = np.dot(aa, bb) / (np.linalg.norm(aa) * np.linalg.norm(bb))
+    s_abcd = np.dot(aa, dc) / (np.linalg.norm(aa) * np.linalg.norm(dc))
+    if c_abcd == 0:
+        theta = np.arcsin(s_abcd)
+    else:
+        theta = np.arctan(s_abcd / c_abcd)
+    return(theta)
+
 def calculateCoM(list_of_positions):
     '''
     Given a list of arrays containing particle positions (vector3)

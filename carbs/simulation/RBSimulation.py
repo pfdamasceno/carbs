@@ -170,8 +170,8 @@ class RigidBodySimulation:
     def run(self,num_steps):
         run(num_steps)
         # now run with stronger spring for another 10,000 steps
-        self.set_harmonic_bonds(10.)
-        run(100000)
+        # self.set_harmonic_bonds(10.)
+        # run(100000)
 
     def update_positions_and_quaternions(self):
         '''

@@ -674,6 +674,7 @@ class Nucleotide:
         self.quaternion                   = None      # quaternion orientation for this nucleotide
         self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = along WC pairing, axial, orthogonal)
         self.position                     = None      # Nucleotide positions for axis particle [0] and backbone [1]
+        self.vectors_simulation_nums      = []      # hoomd simulation number for base and aux (orthogonal) beads
 
         # Body / simulation variables
         self.body                         = None      # body (class) this nucleotide belongs to
