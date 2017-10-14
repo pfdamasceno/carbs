@@ -11,7 +11,7 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_6hb_xover'
+FILENAME = 'PFD_4hb_xover'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
@@ -29,7 +29,7 @@ cg_simulation.create_adjacent_bonds()
 
 cg_simulation.create_rigid_bonds()
 cg_simulation.create_dihedral_bonds()
-cg_simulation.create_base_bonds()
+cg_simulation.create_watson_crick_bonds()
 cg_simulation.set_harmonic_bonds()
 cg_simulation.set_dihedral_bonds()
 
@@ -41,4 +41,4 @@ cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1000)
 
 
 
-cg_simulation.run(100000)
+cg_simulation.run(1000000)

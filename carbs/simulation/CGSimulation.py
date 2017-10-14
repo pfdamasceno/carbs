@@ -72,7 +72,7 @@ class CGSimulation:
         self.num_nucleotides = len(bkbone_positions)
 
         self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
-                                          box            = data.boxdim(Lx=120, Ly=120, Lz=300),
+                                          box            = data.boxdim(Lx=100, Ly=100, Lz=100),
                                           particle_types =['backbone','sidechain','aux'],
                                           bond_types     = self.bond_types,
                                           dihedral_types = self.dihedral_types
@@ -187,7 +187,7 @@ class CGSimulation:
                     strand_len_without_skips += 1
                 index_1st_nucl_in_strand += strand_len_without_skips
 
-    def create_base_bonds(self):
+    def create_watson_crick_bonds(self):
         '''
         Create bonds gluing bases together in double stranded oligos
         '''
@@ -252,12 +252,6 @@ class CGSimulation:
         wca.pair_coeff.set('aux', 'aux',             epsilon=0.0, sigma=1.000, r_cut=1.000*2**(1/6))
 
 
-    def integration(self):
-        ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.0001);
-        rigid = group.rigid_center();
-        md.integrate.langevin(group=rigid, kT=0.01, seed=42);
-
     def fix_diameters(self):
         for i in range(0, self.num_nucleotides):
             self.system.particles[i].diameter = 0.75
@@ -274,6 +268,14 @@ class CGSimulation:
                        group=group.all(),
                        static=[],
                        overwrite=True);
+
+    def integration(self):
+        ########## INTEGRATION ############
+        md.integrate.mode_standard(dt=0.0001);
+        rigid = group.rigid_center();
+        md.integrate.langevin(group=rigid, kT=0.01, seed=42);
+        # run(100000)
+        # md.integrate.mode_standard(dt=0.001);
 
     def run(self,num_steps=1e6):
         run(num_steps)
