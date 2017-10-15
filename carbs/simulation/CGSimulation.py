@@ -110,23 +110,22 @@ class CGSimulation:
 
         particle_sim_num = 0
         for chain in oligos_list:
-            for strand in chain:
-                strand_array = np.asarray(strand)
+            chain_array = np.concatenate(chain)
 
-                this_bead = None
-                next_bead = None
-                for p in range(len(strand_array) - 1):
-                    if not self.origami.get_nucleotide_type(strand_array[p]).skip:
-                        this_bead = particle_sim_num
-                        particle_sim_num += 1
-                    if not self.origami.get_nucleotide_type(strand_array[p + 1]).skip:
-                        next_bead = this_bead + 1
-                    if this_bead != None and next_bead != None:
-                        self.system.bonds.add(self.bond_types[0], this_bead, next_bead)
-                        this_bead = None
-                        next_bead = None
-                # end of chain. next chain starts at another bead:
-                particle_sim_num += 1
+            this_bead = None
+            next_bead = None
+            for p in range(len(chain_array) - 1):
+                if not self.origami.get_nucleotide_type(chain_array[p]).skip:
+                    this_bead = particle_sim_num
+                    particle_sim_num += 1
+                if not self.origami.get_nucleotide_type(chain_array[p + 1]).skip:
+                    next_bead = this_bead + 1
+                if this_bead != None and next_bead != None:
+                    self.system.bonds.add(self.bond_types[0], this_bead, next_bead)
+                    this_bead = None
+                    next_bead = None
+            # end of chain. next chain starts at another bead:
+            particle_sim_num += 1
 
     def create_rigid_bonds(self):
         '''
@@ -215,7 +214,7 @@ class CGSimulation:
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('backbone', k=500.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('backbone', k=10.0 , r0=0.75);
         self.harmonic.bond_coeff.set('base'    , k=500.0 , r0=0.0);
 
     def set_dihedral_bonds(self):
@@ -229,11 +228,11 @@ class CGSimulation:
             return(V, F)
 
         dtable = md.dihedral.table(width=1000)
-        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=500, theta0=-1.571)) #+Pi: why?
-        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=500, theta0=-0.598))
-        dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.559))
-        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.317 - np.pi)) #-Pi: why?
-        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=500, theta0=+0.280))
+        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=50, theta0=-1.571)) #+Pi: why?
+        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=50, theta0=-0.598))
+        dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=10, theta0=+0.559))
+        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.317 - np.pi)) #-Pi: why?
+        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.280))
 
 
     def set_wca_potentials(self):
@@ -271,11 +270,9 @@ class CGSimulation:
 
     def integration(self):
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.0001);
+        md.integrate.mode_standard(dt=0.003);
         rigid = group.rigid_center();
         md.integrate.langevin(group=rigid, kT=0.01, seed=42);
-        # run(100000)
-        # md.integrate.mode_standard(dt=0.001);
 
     def run(self,num_steps=1e6):
         run(num_steps)
