@@ -154,13 +154,13 @@ class CGSimulation:
 
         for c, chain in enumerate(oligos_list):
             for s, strand in enumerate(oligos_list[c]):
-                this_bead = None
-                next_bead = None
-                strand_len_without_skips = 0
+                this_bead        = None
+                next_bead        = None
+                non_skip_counter = 0
                 for n, nucl in enumerate(oligos_list[c][s]):
                     # test for end of chain
                     if n == len(oligos_list[c][s]) - 1:
-                        strand_len_without_skips += 1
+                        non_skip_counter += 1
                         continue
 
                     pointer_1 = self.origami.oligos_list_to_nucleotide_info(c,s,n)
@@ -171,19 +171,19 @@ class CGSimulation:
                         nucl_1    = self.origami.get_nucleotide(pointer_1)
                         this_bead = nucl_1.simulation_nucleotide_num
 
-                        bckb_1 = index_1st_nucl_in_strand + n
-                        base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*n
+                        bckb_1 = index_1st_nucl_in_strand + non_skip_counter
+                        base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
                         orth_1 = base_1 + 1
 
-                        strand_len_without_skips += 1
+                        non_skip_counter += 1
 
                     # test whether 2nd nucleotide is not skip
                     if not self.origami.get_nucleotide_type(pointer_2).skip:
                         nucl_2    = self.origami.get_nucleotide(pointer_2)
                         next_bead = nucl_2.simulation_nucleotide_num
 
-                        bckb_2 = index_1st_nucl_in_strand + n + 1
-                        base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*n + 2
+                        bckb_2 = index_1st_nucl_in_strand + non_skip_counter
+                        base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
                         orth_2 = base_2 + 1
 
                     # test whether we found 1st and 2nd non-skip nucleotides
@@ -196,7 +196,7 @@ class CGSimulation:
                         this_bead = None
                         next_bead = None
 
-                index_1st_nucl_in_strand += strand_len_without_skips
+                index_1st_nucl_in_strand += non_skip_counter
 
     def create_watson_crick_bonds(self):
         '''
@@ -206,13 +206,17 @@ class CGSimulation:
         for vh in range(len(self.origami.nucleotide_matrix)):
             for idx in range(len(self.origami.nucleotide_matrix[vh])):
                 for is_fwd in range(2):
-                    nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
+
                     if self.origami.nucleotide_type_matrix[vh][idx] == None:
                         is_dsDNA = False
+                        continue
                     else:
                         is_dsDNA = self.origami.nucleotide_type_matrix[vh][idx].type
                     # check if single stranded DNA
-                    if is_dsDNA == False or nucleotide.skip == True:
+                    if is_dsDNA == False:
+                        continue
+                    nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
+                    if nucleotide.skip == True:
                         continue
                     nucl_1 = self.origami.nucleotide_matrix[vh][idx][is_fwd]
                     nucl_2 = self.origami.nucleotide_matrix[vh][idx][1 - is_fwd]

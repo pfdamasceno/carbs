@@ -11,7 +11,7 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_2hb_skip'
+FILENAME = 'PFD_skip_test'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
