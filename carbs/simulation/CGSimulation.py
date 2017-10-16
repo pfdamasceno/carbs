@@ -154,41 +154,53 @@ class CGSimulation:
 
         for c, chain in enumerate(oligos_list):
             for s, strand in enumerate(oligos_list[c]):
+                this_bead = None
+                next_bead = None
                 strand_len_without_skips = 0
                 for n, nucl in enumerate(oligos_list[c][s]):
-
-                    bckb_1 = index_1st_nucl_in_strand + n
-                    base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*n
-                    orth_1 = base_1 + 1
-
-                    pointer = self.origami.oligos_list_to_nucleotide_info(c,s,n)
-                    self.origami.get_nucleotide(pointer).vectors_simulation_nums = [base_1, orth_1]
-
+                    # test for end of chain
                     if n == len(oligos_list[c][s]) - 1:
                         strand_len_without_skips += 1
                         continue
 
+                    pointer_1 = self.origami.oligos_list_to_nucleotide_info(c,s,n)
+                    pointer_2 = self.origami.oligos_list_to_nucleotide_info(c,s,n+1)
 
-                    if self.origami.get_nucleotide_type(pointer).skip:
-                        continue
+                    # test whether 1st nucleotide is not skip
+                    if not self.origami.get_nucleotide_type(pointer_1).skip:
+                        nucl_1    = self.origami.get_nucleotide(pointer_1)
+                        this_bead = nucl_1.simulation_nucleotide_num
 
-                    bckb_2 = bckb_1 + 1
-                    base_2 = base_1 + 2
-                    orth_2 = orth_1 + 2
+                        bckb_1 = index_1st_nucl_in_strand + n
+                        base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*n
+                        orth_1 = base_1 + 1
 
+                        strand_len_without_skips += 1
 
-                    self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
-                    self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
-                    self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
-                    self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
-                    self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
+                    # test whether 2nd nucleotide is not skip
+                    if not self.origami.get_nucleotide_type(pointer_2).skip:
+                        nucl_2    = self.origami.get_nucleotide(pointer_2)
+                        next_bead = nucl_2.simulation_nucleotide_num
 
-                    strand_len_without_skips += 1
+                        bckb_2 = index_1st_nucl_in_strand + n + 1
+                        base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*n + 2
+                        orth_2 = base_2 + 1
+
+                    # test whether we found 1st and 2nd non-skip nucleotides
+                    if this_bead != None and next_bead != None:
+                        self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
+                        self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
+                        self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
+                        self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
+                        self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
+                        this_bead = None
+                        next_bead = None
+
                 index_1st_nucl_in_strand += strand_len_without_skips
 
     def create_watson_crick_bonds(self):
         '''
-        Create bonds gluing bases together in double stranded oligos
+        Create bonds between axial particles in dsDNA
         '''
 
         for vh in range(len(self.origami.nucleotide_matrix)):
