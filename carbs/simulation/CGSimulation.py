@@ -80,7 +80,7 @@ class CGSimulation:
 
         self.snapshot.particles.position[:]       = bkbone_positions
         self.snapshot.particles.orientation[:]    = nucl_quaternions
-        self.snapshot.particles.moment_inertia[:] = [[1., 1., 1.]]
+        self.snapshot.particles.moment_inertia[:] = [[100., 100., 100.]]
         # self.snapshot.particles.typeid[:] = [0];
 
         #record particle types and update simulation_nucleotide_num
@@ -158,24 +158,28 @@ class CGSimulation:
                 next_bead        = None
                 non_skip_counter = 0
                 for n, nucl in enumerate(oligos_list[c][s]):
-                    # test for end of chain
-                    if n == len(oligos_list[c][s]) - 1:
-                        non_skip_counter += 1
-                        continue
 
                     pointer_1 = self.origami.oligos_list_to_nucleotide_info(c,s,n)
-                    pointer_2 = self.origami.oligos_list_to_nucleotide_info(c,s,n+1)
-
                     # test whether 1st nucleotide is not skip
                     if not self.origami.get_nucleotide_type(pointer_1).skip:
-                        nucl_1    = self.origami.get_nucleotide(pointer_1)
-                        this_bead = nucl_1.simulation_nucleotide_num
 
                         bckb_1 = index_1st_nucl_in_strand + non_skip_counter
                         base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
                         orth_1 = base_1 + 1
 
+                        nucl_1 = self.origami.get_nucleotide(pointer_1)
+                        nucl_1.vectors_simulation_nums = [base_1, orth_1]
+
+                        # test if end of chain
+                        if n == len(oligos_list[c][s]) - 1:
+                            non_skip_counter += 1
+                            continue
+
+                        this_bead = nucl_1.simulation_nucleotide_num
                         non_skip_counter += 1
+
+                    # now try to find the nucleotide the first bead connects to
+                    pointer_2 = self.origami.oligos_list_to_nucleotide_info(c,s,n+1)
 
                     # test whether 2nd nucleotide is not skip
                     if not self.origami.get_nucleotide_type(pointer_2).skip:
@@ -207,22 +211,24 @@ class CGSimulation:
             for idx in range(len(self.origami.nucleotide_matrix[vh])):
                 for is_fwd in range(2):
 
-                    if self.origami.nucleotide_type_matrix[vh][idx] == None:
-                        is_dsDNA = False
+                    # check if nucleotide exists
+                    if self.origami.nucleotide_matrix[vh][idx][is_fwd] is None:
                         continue
-                    else:
-                        is_dsDNA = self.origami.nucleotide_type_matrix[vh][idx].type
+
                     # check if single stranded DNA
+                    is_dsDNA = self.origami.nucleotide_type_matrix[vh][idx].type
                     if is_dsDNA == False:
                         continue
+
                     nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
                     if nucleotide.skip == True:
                         continue
+
                     nucl_1 = self.origami.nucleotide_matrix[vh][idx][is_fwd]
                     nucl_2 = self.origami.nucleotide_matrix[vh][idx][1 - is_fwd]
                     base_1 = nucl_1.vectors_simulation_nums[0]
                     base_2 = nucl_2.vectors_simulation_nums[0]
-                    # print([base_1,base_2])
+
                     self.system.bonds.add(self.bond_types[1], base_1, base_2)
 
     def set_harmonic_bonds(self):
@@ -230,7 +236,7 @@ class CGSimulation:
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('backbone', k=10.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('backbone', k=5.0 , r0=0.75);
         self.harmonic.bond_coeff.set('base'    , k=500.0 , r0=0.0);
 
     def set_dihedral_bonds(self):
@@ -286,7 +292,7 @@ class CGSimulation:
 
     def integration(self):
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.003);
+        md.integrate.mode_standard(dt=0.0001);
         rigid = group.rigid_center();
         md.integrate.langevin(group=rigid, kT=0.01, seed=42);
 
