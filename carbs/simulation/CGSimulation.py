@@ -217,13 +217,16 @@ class CGSimulation:
 
         oligos_list = self.origami.oligos_list
         for o, oligo in enumerate(oligos_list):
+            oligo_is_circular = self.origami.oligos_type_list[o]
             for s, strand in enumerate(oligos_list[o]):
                 for p, pointer in enumerate(oligos_list[o][s]):
                     this_nucleotide = self.origami.get_nucleotide(pointer)
 
-                    #test for end of oligo
-                    if this_nucleotide.oligo_end == True or \
-                       this_nucleotide.skip == True:
+                    #test for end of oligo in non-circular oligo
+                    if this_nucleotide.oligo_end == True and oligo_is_circular == False:
+                        continue
+
+                    if this_nucleotide.skip == True:
                         continue
 
                     #else make bonds with next neighbor
@@ -232,7 +235,7 @@ class CGSimulation:
                     next_sim_num    = next_nucleotide.simulation_nucleotide_num
                     self.system.bonds.add(self.bond_types[0], this_sim_num, next_sim_num)
 
-                    # if this and next nucleotides are not end
+                    # if this and next nucleotides are not end of a strand
                     if this_nucleotide.strand_end == False and \
                        next_nucleotide.strand_end == False:
                         third_nucleotide = next_nucleotide.next_nucleotide
@@ -248,7 +251,7 @@ class CGSimulation:
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('backbone'    , k=20.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('backbone'    , k=5.0 , r0=0.75);
         self.harmonic.bond_coeff.set('watson_crick', k=500.0 , r0=0.0);
 
         self.angle_harmonic = md.angle.harmonic()

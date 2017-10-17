@@ -33,6 +33,7 @@ class Origami:
         self.part                   = None
         self.oligos                 = None
         self.oligos_list            = None
+        self.oligos_type_list       = []
         self.strands                = None
         self.num_vhs                = None
         self.nucleotide_list        = None
@@ -553,6 +554,15 @@ class Origami:
             strand_list = self.create_strand_list_and_populate_nucleotide_matrix(oligo)
             self.oligos_list.append(strand_list)
 
+    def create_oligos_type_list(self):
+        '''
+        Given an array of oligos in part, returns a list of oligos,
+        returns a list of whether the oligo is circular or not
+        '''
+        for oligo in self.oligos:
+            is_circular = oligo.isCircular()
+            self.oligos_type_list.append(is_circular)
+
     def distance_between_vhs(self, vh1, index1, is_fwd1, vh2, index2, is_fwd2):
         '''
         Given 2 points(vh, index), calculates the
@@ -635,6 +645,7 @@ class Origami:
         assign that to the proper variable
         '''
         for o, oligo in enumerate(self.oligos_list):
+            oligo_is_circular = self.oligos_type_list[o]
             for s, strand in enumerate(self.oligos_list[o]):
                 for p, pointer in enumerate(self.oligos_list[o][s]):
                     this_nucleotide = self.get_nucleotide(pointer)
@@ -646,9 +657,15 @@ class Origami:
                         # test for end of oligo
                         if s == len(oligo) - 1:
                             this_nucleotide.oligo_end = True
+                            # if oligo is circular, connect last and 1st nucleotides and exit
+                            if oligo_is_circular == True:
+                                next_pointer    = self.oligos_list[o][0][0]
+                                next_nucleotide = self.get_nucleotide(next_pointer)
+                                this_nucleotide.next_nucleotide = next_nucleotide
                             continue
-                        next_pointer    = self.oligos_list[o][s+1][0]
-                        next_nucleotide = self.get_nucleotide(next_pointer)
+                        elif s < len(oligo) - 1:
+                            next_pointer    = self.oligos_list[o][s+1][0]
+                            next_nucleotide = self.get_nucleotide(next_pointer)
                     elif p < len(strand) - 1:
                         # test for skips
                         next_pointer    = self.oligos_list[o][s][p + 1]
