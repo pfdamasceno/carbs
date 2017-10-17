@@ -23,7 +23,8 @@ class CGSimulation:
         self.snapshot                = None
 
         self.particle_types          = ['backbone','sidechain','aux']
-        self.bond_types              = ['backbone', 'axis', 'watson_crick']
+        self.bond_types              = ['backbone', 'watson_crick']
+        self.angle_types             = ['axis']
         self.dihedral_types          = ['dihedral1', \
                                         'dihedral2',\
                                         'dihedral3',\
@@ -75,6 +76,7 @@ class CGSimulation:
                                           box            = data.boxdim(Lx=100, Ly=100, Lz=100),
                                           particle_types =['backbone','sidechain','aux'],
                                           bond_types     = self.bond_types,
+                                          angle_types    = self.angle_types,
                                           dihedral_types = self.dihedral_types
                                           );
 
@@ -203,7 +205,7 @@ class CGSimulation:
                     base_1 = nucl_1.vectors_simulation_nums[0]
                     base_2 = nucl_2.vectors_simulation_nums[0]
 
-                    self.system.bonds.add(self.bond_types[2], base_1, base_2)
+                    self.system.bonds.add(self.bond_types[1], base_1, base_2)
 
     def create_adjacent_bonds(self):
         '''
@@ -220,7 +222,8 @@ class CGSimulation:
                     this_nucleotide = self.origami.get_nucleotide(pointer)
 
                     #test for end of oligo
-                    if this_nucleotide.oligo_end == True:
+                    if this_nucleotide.oligo_end == True or \
+                       this_nucleotide.skip == True:
                         continue
 
                     #else make bonds with next neighbor
@@ -238,21 +241,18 @@ class CGSimulation:
                         next_axis_sim_num  = next_nucleotide.vectors_simulation_nums[0]
                         third_axis_sim_num = third_nucleotide.vectors_simulation_nums[0]
 
-                        self.system.bonds.add(self.bond_types[1], \
-                                              this_axis_sim_num, \
-                                              next_axis_sim_num, \
-                                              third_axis_sim_num)
+                        self.system.angles.add(self.angle_types[0], this_axis_sim_num, next_axis_sim_num, third_axis_sim_num)
 
     def set_harmonic_bonds(self):
         '''
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('backbone'    , k=5.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('backbone'    , k=20.0 , r0=0.75);
         self.harmonic.bond_coeff.set('watson_crick', k=500.0 , r0=0.0);
 
         self.angle_harmonic = md.angle.harmonic()
-        self.angle_harmonic.angle_coeff.set('axis', k=50, t0=0.)
+        self.angle_harmonic.angle_coeff.set('axis', k=20, t0=3.1415, r=0.25)
 
     def set_dihedral_bonds(self):
         '''
@@ -265,11 +265,11 @@ class CGSimulation:
             return(V, F)
 
         dtable = md.dihedral.table(width=1000)
-        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=50, theta0=-1.571)) #+Pi: why?
-        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=50, theta0=-0.598))
+        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=1, theta0=-1.571)) #+Pi: why?
+        dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=1, theta0=-0.598))
         dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=10, theta0=+0.559))
-        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.317 - np.pi)) #-Pi: why?
-        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=50, theta0=+0.280))
+        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.317 - np.pi)) #-Pi: why?
+        dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.280))
 
 
     def set_wca_potentials(self):
@@ -279,7 +279,7 @@ class CGSimulation:
         wca = md.pair.lj(r_cut=2.0**(1/6), nlist=self.nl)
         wca.set_params(mode='shift')
 
-        wca.pair_coeff.set('backbone', 'backbone',   epsilon=1.0, sigma=0.750, r_cut=0.750*2**(1/6))
+        wca.pair_coeff.set('backbone', 'backbone',   epsilon=10.0, sigma=0.75, r_cut=0.75*2**(1/6))
         wca.pair_coeff.set('backbone', 'sidechain',  epsilon=0.0, sigma=0.375, r_cut=0.375*2**(1/6))
         wca.pair_coeff.set('sidechain', 'sidechain', epsilon=0.0, sigma=0.100, r_cut=0.4)
 
@@ -307,7 +307,7 @@ class CGSimulation:
 
     def integration(self):
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.00001);
+        md.integrate.mode_standard(dt=0.001);
         rigid = group.rigid_center();
         md.integrate.langevin(group=rigid, kT=0.01, seed=42);
 
