@@ -23,7 +23,7 @@ class CGSimulation:
         self.snapshot                = None
 
         self.particle_types          = ['backbone','sidechain','aux']
-        self.bond_types              = ['backbone', 'base']
+        self.bond_types              = ['backbone', 'axis', 'watson_crick']
         self.dihedral_types          = ['dihedral1', \
                                         'dihedral2',\
                                         'dihedral3',\
@@ -100,32 +100,6 @@ class CGSimulation:
         # Read the snapshot and create neighbor list
         self.system = init.read_snapshot(self.snapshot);
         self.nl     = md.nlist.cell();
-
-    def create_adjacent_bonds(self):
-        '''
-        Create spring bonds between adjacent (neighboring) particles
-        If neighbor is skip, find 'end' of skip region and add next bead as neighbor
-        '''
-        oligos_list = self.origami.oligos_list
-
-        particle_sim_num = 0
-        for chain in oligos_list:
-            chain_array = np.concatenate(chain)
-
-            this_bead = None
-            next_bead = None
-            for p in range(len(chain_array) - 1):
-                if not self.origami.get_nucleotide_type(chain_array[p]).skip:
-                    this_bead = particle_sim_num
-                    particle_sim_num += 1
-                if not self.origami.get_nucleotide_type(chain_array[p + 1]).skip:
-                    next_bead = this_bead + 1
-                if this_bead != None and next_bead != None:
-                    self.system.bonds.add(self.bond_types[0], this_bead, next_bead)
-                    this_bead = None
-                    next_bead = None
-            # end of chain. next chain starts at another bead:
-            particle_sim_num += 1
 
     def create_rigid_bonds(self):
         '''
@@ -229,15 +203,56 @@ class CGSimulation:
                     base_1 = nucl_1.vectors_simulation_nums[0]
                     base_2 = nucl_2.vectors_simulation_nums[0]
 
-                    self.system.bonds.add(self.bond_types[1], base_1, base_2)
+                    self.system.bonds.add(self.bond_types[2], base_1, base_2)
+
+    def create_adjacent_bonds(self):
+        '''
+        Create spring bonds between adjacent (neighboring) particles
+        If neighbor is skip, find 'end' of skip region and add next bead as neighbor
+        '''
+
+        # wrong! axis particles dont make bonds across strands !
+
+        oligos_list = self.origami.oligos_list
+        for o, oligo in enumerate(oligos_list):
+            for s, strand in enumerate(oligos_list[o]):
+                for p, pointer in enumerate(oligos_list[o][s]):
+                    this_nucleotide = self.origami.get_nucleotide(pointer)
+
+                    #test for end of oligo
+                    if this_nucleotide.oligo_end == True:
+                        continue
+
+                    #else make bonds with next neighbor
+                    next_nucleotide = this_nucleotide.next_nucleotide
+                    this_sim_num    = this_nucleotide.simulation_nucleotide_num
+                    next_sim_num    = next_nucleotide.simulation_nucleotide_num
+                    self.system.bonds.add(self.bond_types[0], this_sim_num, next_sim_num)
+
+                    # if this and next nucleotides are not end
+                    if this_nucleotide.strand_end == False and \
+                       next_nucleotide.strand_end == False:
+                        third_nucleotide = next_nucleotide.next_nucleotide
+
+                        this_axis_sim_num  = this_nucleotide.vectors_simulation_nums[0]
+                        next_axis_sim_num  = next_nucleotide.vectors_simulation_nums[0]
+                        third_axis_sim_num = third_nucleotide.vectors_simulation_nums[0]
+
+                        self.system.bonds.add(self.bond_types[1], \
+                                              this_axis_sim_num, \
+                                              next_axis_sim_num, \
+                                              third_axis_sim_num)
 
     def set_harmonic_bonds(self):
         '''
         Set harmonic bonds
         '''
         self.harmonic = md.bond.harmonic()
-        self.harmonic.bond_coeff.set('backbone', k=5.0 , r0=0.75);
-        self.harmonic.bond_coeff.set('base'    , k=500.0 , r0=0.0);
+        self.harmonic.bond_coeff.set('backbone'    , k=5.0 , r0=0.75);
+        self.harmonic.bond_coeff.set('watson_crick', k=500.0 , r0=0.0);
+
+        self.angle_harmonic = md.angle.harmonic()
+        self.angle_harmonic.angle_coeff.set('axis', k=50, t0=0.)
 
     def set_dihedral_bonds(self):
         '''
@@ -292,7 +307,7 @@ class CGSimulation:
 
     def integration(self):
         ########## INTEGRATION ############
-        md.integrate.mode_standard(dt=0.0001);
+        md.integrate.mode_standard(dt=0.00001);
         rigid = group.rigid_center();
         md.integrate.langevin(group=rigid, kT=0.01, seed=42);
 

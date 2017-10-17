@@ -628,6 +628,37 @@ class Origami:
                                                  nucl_quaternion.y, \
                                                  nucl_quaternion.z]
 
+    def calculate_next_nucleotide(self):
+        '''
+        Given an list of list of strands, calculates the next nucleotide for
+        each nucleotide in strand. If is the end of strand or oligo,
+        assign that to the proper variable
+        '''
+        for o, oligo in enumerate(self.oligos_list):
+            for s, strand in enumerate(self.oligos_list[o]):
+                for p, pointer in enumerate(self.oligos_list[o][s]):
+                    this_nucleotide = self.get_nucleotide(pointer)
+
+                    # test for end of strand
+                    if p == len(strand) - 1:
+                        this_nucleotide.strand_end = True
+
+                        # test for end of oligo
+                        if s == len(oligo) - 1:
+                            this_nucleotide.oligo_end = True
+                            continue
+                        next_pointer    = self.oligos_list[o][s+1][0]
+                        next_nucleotide = self.get_nucleotide(next_pointer)
+                    elif p < len(strand) - 1:
+                        # test for skips
+                        next_pointer    = self.oligos_list[o][s][p + 1]
+                        next_nucleotide = self.get_nucleotide(next_pointer)
+                        while next_nucleotide.skip == True:
+                            p += 1
+                            next_pointer    = self.oligos_list[o][s][p + 1]
+                            next_nucleotide = self.get_nucleotide(next_pointer)
+                    this_nucleotide.next_nucleotide = next_nucleotide
+
 class DSNucleotide:
     '''
     Fwd and Rev (sense/antisense) nucleotides making up a double strand nucleotide
@@ -670,11 +701,14 @@ class Nucleotide:
         self.strand                       = None      # Nucleotide's strand number
         self.vh                           = None      # Nucleotide's virtual helix
         self.skip                         = False     # Skip value for the nucleotide
+        self.next_nucleotide              = None      # Next nucleotide in a strand
+        self.strand_end                   = False     # Whether this nucleotide is in the end of a strand
+        self.oligo_end                    = False     # Whether this nucleotide is in the end of a oligo
 
         self.quaternion                   = None      # quaternion orientation for this nucleotide
         self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = along WC pairing, axial, orthogonal)
         self.position                     = None      # Nucleotide positions for axis particle [0] and backbone [1]
-        self.vectors_simulation_nums      = []      # hoomd simulation number for base and aux (orthogonal) beads
+        self.vectors_simulation_nums      = []        # hoomd simulation number for base and aux (orthogonal) beads
 
         # Body / simulation variables
         self.body                         = None      # body (class) this nucleotide belongs to

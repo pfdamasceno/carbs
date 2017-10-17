@@ -11,7 +11,7 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_6hb_long'
+FILENAME = 'PFD_2hb_skip'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
@@ -32,7 +32,7 @@ new_origami.incorporate_skips()
 new_origami.assign_nucleotide_connections()
 new_origami.cluster_into_bodies()
 new_origami.parse_skip_connections()
-new_origami.calculate_quaternions_from_positions()
+new_origami.calculate_next_nucleotide()
 
 relax_simulation         = RBSimulation.RigidBodySimulation()
 relax_simulation.origami = new_origami
@@ -53,11 +53,12 @@ cg_simulation.initialize_cg_md()
 cg_simulation.initialize_particles()
 cg_simulation.initialize_system()
 
-cg_simulation.create_adjacent_bonds()
-
 cg_simulation.create_rigid_bonds()
 cg_simulation.create_dihedral_bonds()
 cg_simulation.create_watson_crick_bonds()
+
+
+cg_simulation.create_adjacent_bonds()
 cg_simulation.set_harmonic_bonds()
 cg_simulation.set_dihedral_bonds()
 
