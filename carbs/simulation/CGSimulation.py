@@ -255,7 +255,7 @@ class CGSimulation:
         self.harmonic.bond_coeff.set('watson_crick', k=500.0 , r0=0.0);
 
         self.angle_harmonic = md.angle.harmonic()
-        self.angle_harmonic.angle_coeff.set('axis', k=20, t0=3.1415, r=0.25)
+        self.angle_harmonic.angle_coeff.set('axis', k=20, t0=3.1415)
 
     def set_dihedral_bonds(self):
         '''

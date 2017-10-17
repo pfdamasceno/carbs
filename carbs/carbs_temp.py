@@ -59,7 +59,6 @@ cg_simulation.create_rigid_bonds()
 cg_simulation.create_dihedral_bonds()
 cg_simulation.create_watson_crick_bonds()
 
-
 cg_simulation.create_adjacent_bonds()
 cg_simulation.set_harmonic_bonds()
 cg_simulation.set_dihedral_bonds()
@@ -69,4 +68,4 @@ cg_simulation.fix_diameters()
 cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1000)
 cg_simulation.integration()
 
-cg_simulation.run(10000000)
+cg_simulation.run(1000000)
