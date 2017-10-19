@@ -62,6 +62,32 @@ class Origami:
             new_oligo.is_circular = cadnano_oligo.isCircular()
             self.oligos_list.append(new_oligo)
 
+    def parse_oligo(self, oligo):
+        '''
+        Given a initialized carbs oligo,
+        populates its strands_list with strands
+        '''
+        cadnano_oligo = oligo.cadnano_oligo
+        generator     = cadnano_oligo.strand5p().generator3pStrand()
+
+        for cadnano_strand in generator:
+            new_strand = Strand()
+
+            new_strand.vh        = cadnano_strand.idNum()
+            new_strand.index_5p  = cadnano_strand.idx5Prime()
+            new_strand.index_3p  = cadnano_strand.idx3Prime()
+            new_strand.is_fwd    = cadnano_strand.isForward()
+
+            direction = (-1 + 2*cadnano_strand.isForward()) #-1 if backwards, 1 if fwd
+            # add nucleotide pointers to strand
+            new_strand.pointers_list = []
+            for i in range(new_strand.index_5p, new_strand.index_3p + direction, direction):
+                new_strand.pointers_list.append([new_strand.vh, new_strand.is_fwd, i])
+
+            oligo.strands_list.append(new_strand)
+        return oligo_helper_list
+
+
     def initialize_nucleotide_matrix(self):
         '''
         Creates an empty matrix of len = vh_length x index_length
@@ -317,10 +343,10 @@ class Origami:
             staple_strandSet   = self.part.getStrandSets(vh)[not(vh % 2)]
             scaffold_strandSet = self.part.getStrandSets(vh)[(vh % 2)]
 
-            for strand in staple_strandSet:
-                self.connection3p(strand)
+            for cadnano_strand in staple_strandSet:
+                self.connection3p(cadnano_strand)
             for strand in scaffold_strandSet:
-                self.connection3p(strand)
+                self.connection3p(cadnano_strand)
 
     def dfs(self, start_nucleotide_type):
         '''
@@ -515,13 +541,38 @@ class Origami:
             strand_list.append(nucleotides_list)
         return strand_list
 
+    def connection3p(self, cadnano_strand):
+        '''
+        Given a strand, returns the vhelix to which the 3p end
+        connects to, if the distance is not too far
+        '''
+        if cadnano_strand.connection3p() != None:
+            vh_1 = cadnano_strand.idNum()
+            index_1 = cadnano_strand.idx3Prime()
+            is_fwd_1 = int(cadnano_strand.isForward())
+
+            vh_2 = cadnano_strand.connection3p().idNum()
+            index_2 = cadnano_strand.connection3p().idx5Prime()
+            is_fwd_2 = int(cadnano_strand.connection3p().isForward())
+
+            conn_pointer_1 = (vh_1, index_1, is_fwd_1)
+            conn_pointer_2 = (vh_2, index_2, is_fwd_2)
+
+            distance = self.distance_between_vhs(vh_1, index_1, is_fwd_1, vh_2, index_2, is_fwd_2)
+
+            if distance < self.crossover_distance:
+                self.crossovers[conn_pointer_1]    =  conn_pointer_2
+                self.vh_vh_crossovers[vh_1][vh_2] += 1
+                self.vh_vh_crossovers[vh_2][vh_1] += 1
+            else:
+                self.long_range_connections[conn_pointer_1] = conn_pointer_2
+
     def oligos_list_to_nucleotide_info(self, i, j, k):
         '''
         Returns a tuple list (aka pointer) [vh, index, is_fwd]
         for the nucleotide oligos_list[i][j][k] where
         i,j,k are the indices for the oligo, strand, and nucleotide.
         '''
-
         [vh, index, is_fwd] = self.oligos_list[i][j][k]
         return [vh, index, is_fwd]
 
