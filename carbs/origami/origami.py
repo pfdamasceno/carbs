@@ -31,12 +31,8 @@ class Origami:
 
         #Cadnano parameters
         self.part                   = None
-        self.oligos                 = None
         self.oligos_list            = None
-        self.oligos_type_list       = []
-        self.strands                = None
         self.num_vhs                = None
-        self.nucleotide_list        = None
         self.nucleotide_matrix      = None
 
         self.nucleotide_type_list   = None
@@ -371,14 +367,14 @@ class Origami:
             #Initialize rigid bodies
             rigid_body.initialize()
 
-    def parse_oligo(self, oligo):
+    def parse_oligo(self, cadnano_oligo):
         '''
         Given an oligo, returns the following list of useful properties
         (strand, strand direction, virtual_helix_id, index)
         for each nucleotide. List is oriented 5' to 3'
         '''
 
-        generator         = oligo.strand5p().generator3pStrand()
+        generator         = cadnano_oligo.strand5p().generator3pStrand()
         oligo_helper_list = []
         for strand in generator:
             strand_helper_list = []
@@ -391,28 +387,23 @@ class Origami:
             oligo_helper_list.append(strand_helper_list)
         return oligo_helper_list
 
-    def find_skips(self):
-        '''
-        Identify all the skips in the structure
-        '''
-        for oligo in self.oligos:
-            generator  = oligo.strand5p().generator3pStrand()
-            for strand in generator:
-                vh = strand.idNum()
-                index_5p  = strand.idx5Prime()
-                index_3p  = strand.idx3Prime()
-                direction = (-1 + 2*strand.isForward()) #-1 if backwards, 1 if fwd
-                for idx in range(index_5p, index_3p + direction, direction):
-                    if strand.hasInsertionAt(idx) and strand.insertionLengthBetweenIdxs(idx,idx) == -1:
-                        self.skip_matrix[vh][idx][int(strand.isForward())] = True
-
     def list_oligos(self):
         '''
         Given a origami part
         Return an array with all oligos in part sorted by length
         '''
-        self.oligos = self.part.oligos()
-        self.oligos = sorted(self.oligos, key=lambda x: x.length(), reverse=True)
+        if self.oligos_list == None:
+            self.oligos_list = []
+        else:
+            sys.exit("trying to initialize a non-empty oligos_list. Exiting")
+
+        cadnano_oligos_list = self.part.oligos()
+        cadnano_oligos_list = sorted(cadnano_oligos_list, key=lambda x: x.length(), reverse=True)
+        for cadnano_oligo in cadnano_oligos_list:
+            new_oligo = Oligo()
+            new_oligo.cadnano_oligo = cadnano_oligo
+            new_oligo.is_circular = cadnano_oligo.isCircular()
+            self.oligos_list.append(new_oligo)
 
     def get_coordinates(self, vh, index):
         '''
@@ -438,6 +429,26 @@ class Origami:
         self.nucleotide_type_matrix  = [[ None  for idx in range(num_bases)] for vh in range(self.num_vhs)]
         self.vh_vh_crossovers        = [[0  for vh in range(self.num_vhs)] for vh in range(self.num_vhs)]
         self.skip_matrix             = [[[False,False]  for idx in range(num_bases)] for vh in range(self.num_vhs)]
+        self.insertion_matrix        = [[[False,False]  for idx in range(num_bases)] for vh in range(self.num_vhs)]
+
+    def find_skips(self):
+        '''
+        Identify all the skips in the structure
+        '''
+        for oligo in self.oligos_list:
+            cadnano_oligo = oligo.cadnano_oligo
+            generator  = cadnano_oligo.strand5p().generator3pStrand()
+            for strand in generator:
+                vh = strand.idNum()
+                index_5p  = strand.idx5Prime()
+                index_3p  = strand.idx3Prime()
+                direction = (-1 + 2*strand.isForward()) #-1 if backwards, 1 if fwd
+                for idx in range(index_5p, index_3p + direction, direction):
+                    if strand.hasInsertionAt(idx):
+                        if strand.insertionLengthBetweenIdxs(idx,idx) == -1:
+                            self.skip_matrix[vh][idx][int(strand.isForward())] = True
+                        elif strand.insertionLengthBetweenIdxs(idx,idx) == 0:
+                            self.insertion_matrix[vh][idx][int(strand.isForward())] = True
 
     def connection3p(self, strand):
         '''
@@ -524,9 +535,6 @@ class Origami:
                 #Assign the nucleotide
                 self.nucleotide_matrix[vh][index][is_fwd] = new_nucleotide
 
-                #Add nucleotide to list
-                self.nucleotide_list.append(new_nucleotide)
-
                 nucleotides_list.append([vh, index, is_fwd])
             strand_list.append(nucleotides_list)
         return strand_list
@@ -549,19 +557,9 @@ class Origami:
         In the process, also populate the nucleotide_matrix w/ nucleotides
         '''
         self.oligos_list     = []
-        self.nucleotide_list = []
         for oligo in self.oligos:
             strand_list = self.create_strand_list_and_populate_nucleotide_matrix(oligo)
             self.oligos_list.append(strand_list)
-
-    def create_oligos_type_list(self):
-        '''
-        Given an array of oligos in part, returns a list of oligos,
-        returns a list of whether the oligo is circular or not
-        '''
-        for oligo in self.oligos:
-            is_circular = oligo.isCircular()
-            self.oligos_type_list.append(is_circular)
 
     def distance_between_vhs(self, vh1, index1, is_fwd1, vh2, index2, is_fwd2):
         '''
@@ -676,6 +674,23 @@ class Origami:
                             next_nucleotide = self.get_nucleotide(next_pointer)
                     this_nucleotide.next_nucleotide = next_nucleotide
 
+class Oligo:
+    '''
+    An oligo is a collection of strands
+    '''
+    def __init__(self):
+        self.cadnano_oligo     = None                 # Oligo class from cadnano, inherenting all its attributes
+        self.is_circular       = False
+        self.strands_list      = []                   # Ordered list of strands making up this oligo
+
+class Strand:
+    '''
+    A strand is a collection of connected nucleotides,
+    bounded between xovers or starting / ending points
+    '''
+    def __init__(self):
+        self.nucl_pointer_list  = []                 # Ordered list of pointers in the form [vh, index, is_fwd] for each nucleotide in strand
+
 class DSNucleotide:
     '''
     Fwd and Rev (sense/antisense) nucleotides making up a double strand nucleotide
@@ -717,8 +732,11 @@ class Nucleotide:
         self.index                        = None      # z position in cadnano's unit
         self.strand                       = None      # Nucleotide's strand number
         self.vh                           = None      # Nucleotide's virtual helix
-        self.skip                         = False     # Skip value for the nucleotide
-        self.next_nucleotide              = None      # Next nucleotide in a strand
+        self.skip                         = False     # Whether the nucleotide is a skip
+        self.insertion                    = False     # Whether the nucleotide is a insertion
+
+        self.next                         = None      # Next nucleotide in a strand, if existent
+        self.previous                     = None      # Previous nucleotide in strand, if existent
         self.strand_end                   = False     # Whether this nucleotide is in the end of a strand
         self.oligo_end                    = False     # Whether this nucleotide is in the end of a oligo
 

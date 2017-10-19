@@ -11,7 +11,7 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_2hb_skip'
+FILENAME = 'PFD_2hb_insert'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
@@ -23,6 +23,7 @@ doc.readFile(INPUT_FILENAME);
 new_origami      = origami.Origami()
 new_origami.part = doc.activePart()
 new_origami.list_oligos()
+
 new_origami.initialize_nucleotide_matrix()
 new_origami.find_skips()
 new_origami.create_oligos_list()
