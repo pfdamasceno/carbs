@@ -22,12 +22,12 @@ doc.readFile(INPUT_FILENAME);
 #Parse the structure for simulation
 new_origami      = origami.Origami()
 new_origami.part = doc.activePart()
-new_origami.list_oligos()
+
+new_origami.parse_oligos_from_cadnano()
 
 new_origami.initialize_nucleotide_matrix()
 new_origami.find_skips()
 new_origami.create_oligos_list()
-new_origami.create_oligos_type_list()
 new_origami.get_connections()
 new_origami.assign_nucleotide_types()
 new_origami.incorporate_skips()
