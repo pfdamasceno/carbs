@@ -93,11 +93,11 @@ class Origami:
         self.num_vhs                 = len(list(self.part.getIdNums()))
         self.num_bases               = self.part.getVirtualHelix(0).getSize()
 
-        self.nucleotide_matrix       = [[[None,None]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
+        self.nucleotide_matrix       = [[[None, None]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
         self.nucleotide_type_matrix  = [[ None  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
         self.vh_vh_crossovers        = [[0  for vh in range(self.num_vhs)] for vh in range(self.num_vhs)]
-        self.skip_matrix             = [[[False,False]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
-        self.insert_matrix           = [[[False,False]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
+        self.skip_matrix             = [[[False, False]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
+        self.insert_matrix           = [[[None, None]  for idx in range(self.num_bases)] for vh in range(self.num_vhs)]
 
     def populate_skips_inserts_matrix(self):
         '''
@@ -649,6 +649,41 @@ class Origami:
                                                  nucl_quaternion.y, \
                                                  nucl_quaternion.z]
 
+    def update_shifted_nucleotide(self, old_nucleotide, shifted_nucleotide, index_shift):
+        #explicit is better than implicit (ZEN)
+        #copy old nucleotide values that do not change with shift
+        shifted_nucleotide.direction                    = old_nucleotide.direction
+        shifted_nucleotide.is_fwd                       = old_nucleotide.is_fwd
+        shifted_nucleotide.strand                       = old_nucleotide.strand
+        shifted_nucleotide.vh                           = old_nucleotide.vh
+        shifted_nucleotide.skip                         = old_nucleotide.skip
+        shifted_nucleotide.inserts                      = old_nucleotide.inserts
+        shifted_nucleotide.is_strand_end                = old_nucleotide.is_strand_end
+        shifted_nucleotide.is_oligo_end                 = old_nucleotide.is_oligo_end
+        shifted_nucleotide.vectors_body_frame           = old_nucleotide.vectors_body_frame
+        shifted_nucleotide.body                         = old_nucleotide.body
+        shifted_nucleotide.body_num                     = old_nucleotide.body_num
+
+        #now update the values that do change with shift
+        shifted_index = old_nucleotide.index + index_shift
+
+        shifted_nucleotide.index                        = shifted_index
+        shifted_nucleotide.is_canvas_end                = shifted_index == self.num_bases - 1
+        shifted_nucleotide.is_canvas_start              = shifted_index == 0
+
+        #next nucleotide doesn't change if it was none or in another vh
+        next_is_in_other_vh = old_nucleotide.next.vh != old_nucleotide.vh
+        if next_is_in_other_vh or old_nucleotide.next.vh == None:
+            shifted_nucleotide.next = old_nucleotide.next
+        #otherwise shift the index by index_shift
+        else:
+            shifted_index_next      = old_nucleotide.next.index + index_shift
+            vh                      = old_nucleotide.vh
+            is_fwd                  = old_nucleotide.is_fwd
+            shifted_nucleotide.next = self.nucleotide_matrix[vh][shifted_index_next][is_fwd]
+
+        return(shifted_nucleotide)
+
     def calculate_next_nucleotide(self):
         '''
         Starting at the rightmost base for each vh,
@@ -680,6 +715,7 @@ class Origami:
                             p += 1
                             next_pointer    = self.oligos_list[o].strands_list[s].pointers_list[p + 1]
                             next_nucleotide = self.get_nucleotide(next_pointer)
+
                     this_nucleotide.next = next_nucleotide
 
         #2. If inserts exist, create bases on the r.h.s. and shift nucleotides accordingly
@@ -702,43 +738,27 @@ class Origami:
                 inserts        = strand0.insertionLengthBetweenIdxs(low_base, high_base)
                 inserts_in_vh += inserts
                 num_inserted   = 0
+
                 #start from rightmost base in strandset and walk to the left
                 for index in range(high_base, low_base - 1, -1):
+
                     index_shift        = inserts_in_vh - num_inserted
                     shifted_index      = index + index_shift
 
                     old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
                     shifted_nucleotide = self.nucleotide_matrix[vh][shifted_index][is_fwd]
 
-                    #explicit is better than implicit (ZEN)
-                    #copy old nucleotide values that do not change with shift
-                    shifted_nucleotide.direction                    = old_nucleotide.direction
-                    shifted_nucleotide.is_fwd                       = old_nucleotide.is_fwd
-                    shifted_nucleotide.strand                       = old_nucleotide.strand
-                    shifted_nucleotide.vh                           = old_nucleotide.vh
-                    shifted_nucleotide.skip                         = old_nucleotide.skip
-                    shifted_nucleotide.insertion                    = old_nucleotide.insertion
-                    shifted_nucleotide.is_strand_end                = old_nucleotide.is_strand_end
-                    shifted_nucleotide.is_oligo_end                 = old_nucleotide.is_oligo_end
-                    shifted_nucleotide.vectors_body_frame           = old_nucleotide.vectors_body_frame
-                    shifted_nucleotide.body                         = old_nucleotide.body
-                    shifted_nucleotide.body_num                     = old_nucleotide.body_num
+                    num_inserts = self.insert_matrix[old_nucleotide.vh][old_nucleotide.index][old_nucleotide.is_fwd]
+                    if num_inserts is not None:
+                        for inserts in range(num_inserts):
+                            shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, shifted_nucleotide, index_shift)
+                            num_inserted += 1
+                            index_shift   = inserts_in_vh - num_inserted
 
-                    #now update the values that do change with shift
-                    shifted_nucleotide.index                        = shifted_index
-                    shifted_nucleotide.is_canvas_end                = shifted_index == self.num_bases - 1
-                    shifted_nucleotide.is_canvas_start              = shifted_index == 0
-
-                    #next nucleotide doesn't change if it was none or in another vh
-                    next_is_in_other_vh = old_nucleotide.next.vh != old_nucleotide.vh
-                    if next_is_in_other_vh or old_nucleotide.next.vh == None:
-                        shifted_nucleotide.next = old_nucleotide.next
-                    #otherwise shift the index by index_shift
-                    else:
-                        shifted_index_next      = old_nucleotide.next.index + index_shift
-                        shifted_nucleotide.next = self.nucleotide_matrix[vh][shifted_index_next][is_fwd]
+                    shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, shifted_nucleotide, index_shift)
 
                     print([[vh, index], [shifted_nucleotide.vh, shifted_nucleotide.index], [shifted_nucleotide.next.vh, shifted_nucleotide.next.index]])
+                print(" ")
 
 
 class Oligo:
@@ -807,7 +827,7 @@ class Nucleotide:
         self.strand                       = None      # Nucleotide's strand number
         self.vh                           = None      # Nucleotide's virtual helix
         self.skip                         = False     # Whether the nucleotide is a skip
-        self.insertion                    = None      # How many insertions in this nucleotide site
+        self.inserts                      = None      # How many insertions in this nucleotide site
 
         self.next                         = None      # Next nucleotide in a strand, if existent
         self.is_strand_end                = False     # Whether this nucleotide is in the end of a strand
