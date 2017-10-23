@@ -757,9 +757,6 @@ class Origami:
 
                     shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, shifted_nucleotide, index_shift)
 
-                    print([[vh, index], [shifted_nucleotide.vh, shifted_nucleotide.index], [shifted_nucleotide.next.vh, shifted_nucleotide.next.index]])
-                print(" ")
-
 
 class Oligo:
     '''
