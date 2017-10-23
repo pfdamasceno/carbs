@@ -1,6 +1,9 @@
 import numpy as np
 import cadnano
 import functools
+import sys
+import copy
+
 
 from cadnano.document import Document
 
@@ -148,15 +151,15 @@ class Origami:
                     new_nucleotide.skip              = self.skip_matrix[vh][index][is_fwd]
 
                     if p == len(strand.pointers_list) - 1:
-                        new_nucleotide.strand_end = True
-                        if s == len(oligo.strands_list):
-                            new_nucleotide.oligo_end = True
+                        new_nucleotide.is_strand_end = True
+                        if s == len(oligo.strands_list) - 1:
+                            new_nucleotide.is_oligo_end = True
 
                     #check if end or beginning of canvas
                     if index == self.num_bases - 1:
-                        new_nucleotide.canvas_high_end = True
+                        new_nucleotide.is_canvas_end = True
                     if index == 0:
-                        new_nucleotide.canvas_low_end  = True
+                        new_nucleotide.is_canvas_start  = True
 
                     #Assign the nucleotide
                     self.nucleotide_matrix[vh][index][is_fwd] = new_nucleotide
@@ -179,10 +182,8 @@ class Origami:
                         new_nucleotide.skip                = None
 
                         #check if end or beginning of canvas
-                        if index == self.num_bases - 1:
-                            new_nucleotide.canvas_high_end = True
-                        if index == 0:
-                            new_nucleotide.canvas_low_end  = True
+                        new_nucleotide.is_canvas_end       = (index == self.num_bases - 1)
+                        new_nucleotide.is_canvas_start     = (index == 0)
 
                         #Assign the nucleotide
                         self.nucleotide_matrix[vh][index][is_fwd] = new_nucleotide
@@ -615,10 +616,10 @@ class Origami:
 
                     is_rev = 1 - is_fwd
                     end_of_canvas = False
-                    if nucleotide.canvas_high_end * is_fwd  or nucleotide.canvas_low_end * is_rev:
+                    if nucleotide.is_canvas_end * is_fwd  or nucleotide.is_canvas_start * is_rev:
                         end_of_canvas = True
 
-                    if nucleotide.strand_end == False and end_of_canvas == False:
+                    if nucleotide.is_strand_end == False and end_of_canvas == False:
                         [vh_2, index_2, is_fwd_2] = [vh, index + direction, is_fwd]
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
@@ -627,7 +628,7 @@ class Origami:
                         orth_vector_1  = np.cross(base_vector_1, axial_vector_1)
 
                     #last oligo in strand chain or canvas, calculate vectors wrt to previous nucleotide
-                    elif nucleotide.strand_end == True or end_of_canvas == True:
+                    elif nucleotide.is_strand_end == True or end_of_canvas == True:
                         [vh_2, index_2, is_fwd_2] = [vh, index - direction, is_fwd]
                         [axis_2, backbone_2]      = self.nucleotide_matrix[vh_2][index_2][is_fwd_2].position
 
@@ -654,33 +655,91 @@ class Origami:
         '''
         #1. populate who's next by following strands along oligo (ignore skips for now)
         for o, oligo in enumerate(self.oligos_list):
-            oligo_is_circular = self.oligos_type_list[o]
-            for s, strand in enumerate(self.oligos_list[o]):
-                for p, pointer in enumerate(self.oligos_list[o][s]):
+            for s, strand in enumerate(oligo.strands_list):
+                for p, pointer in enumerate(strand.pointers_list):
                     this_nucleotide = self.get_nucleotide(pointer)
 
-                    # test for end of strand
-                    if this_nucleotide.strand_end == True:
-                        # test for end of oligo
-                        if this_nucleotide.oligo_end == True:
+                    # test for end of strand, and end of oligo
+                    if this_nucleotide.is_strand_end:
+                        if this_nucleotide.is_oligo_end:
                             # if oligo is circular, connect last and 1st nucleotides and exit
-                            if oligo_is_circular == True:
-                                next_pointer    = self.oligos_list[o][0][0]
+                            if oligo.is_circular:
+                                next_pointer    = self.oligos_list[o].strands_list[0].pointers_list[0]
                                 next_nucleotide = self.get_nucleotide(next_pointer)
-                                this_nucleotide.next_nucleotide = next_nucleotide
-                        elif this_nucleotide.oligo_end == False:
-                            # next nucleotide is the first in next strand
-                            next_pointer    = self.oligos_list[o][s+1][0]
+
+                        # if end of strand but not of oligo, next is the 1st in next strand
+                        elif this_nucleotide.is_oligo_end == False:
+                            next_pointer    = self.oligos_list[o].strands_list[s+1].pointers_list[0]
                             next_nucleotide = self.get_nucleotide(next_pointer)
-                    elif this_nucleotide.strand_end == False:
+
+                    elif this_nucleotide.is_strand_end == False:
                         # test for skips
-                        next_pointer    = self.oligos_list[o][s][p + 1]
+                        next_pointer    = self.oligos_list[o].strands_list[s].pointers_list[p + 1]
                         next_nucleotide = self.get_nucleotide(next_pointer)
                         while next_nucleotide.skip == True:
                             p += 1
-                            next_pointer    = self.oligos_list[o][s][p + 1]
+                            next_pointer    = self.oligos_list[o].strands_list[s].pointers_list[p + 1]
                             next_nucleotide = self.get_nucleotide(next_pointer)
-                    this_nucleotide.next_nucleotide = next_nucleotide
+                    this_nucleotide.next = next_nucleotide
+
+        #2. If inserts exist, create bases on the r.h.s. and shift nucleotides accordingly
+        for vh in range(self.num_vhs):
+            strand_sets = self.part.getStrandSets(vh)
+            [fwd_strand_set, rvs_strand_set] = strand_sets
+
+            #Identify low and high bases in origami
+            high_base = fwd_strand_set.indexOfRightmostNonemptyBase()
+
+            try:
+                low_base  = fwd_strand_set.indexOfLeftmostNonemptyBase()
+            except AttributeError:
+                sys.exit('indexOfLeftmostNonemptyBase is only available at v2.5+ of cadnano. Please update.')
+
+            for strand_set in [fwd_strand_set, rvs_strand_set]:
+                inserts_in_vh  = 0
+                strand0        = strand_set.strands()[0]
+                is_fwd         = strand0.isForward()
+                inserts        = strand0.insertionLengthBetweenIdxs(low_base, high_base)
+                inserts_in_vh += inserts
+                num_inserted   = 0
+                #start from rightmost base in strandset and walk to the left
+                for index in range(high_base, low_base - 1, -1):
+                    index_shift        = inserts_in_vh - num_inserted
+                    shifted_index      = index + index_shift
+
+                    old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
+                    shifted_nucleotide = self.nucleotide_matrix[vh][shifted_index][is_fwd]
+
+                    #explicit is better than implicit (ZEN)
+                    #copy old nucleotide values that do not change with shift
+                    shifted_nucleotide.direction                    = old_nucleotide.direction
+                    shifted_nucleotide.is_fwd                       = old_nucleotide.is_fwd
+                    shifted_nucleotide.strand                       = old_nucleotide.strand
+                    shifted_nucleotide.vh                           = old_nucleotide.vh
+                    shifted_nucleotide.skip                         = old_nucleotide.skip
+                    shifted_nucleotide.insertion                    = old_nucleotide.insertion
+                    shifted_nucleotide.is_strand_end                = old_nucleotide.is_strand_end
+                    shifted_nucleotide.is_oligo_end                 = old_nucleotide.is_oligo_end
+                    shifted_nucleotide.vectors_body_frame           = old_nucleotide.vectors_body_frame
+                    shifted_nucleotide.body                         = old_nucleotide.body
+                    shifted_nucleotide.body_num                     = old_nucleotide.body_num
+
+                    #now update the values that do change with shift
+                    shifted_nucleotide.index                        = shifted_index
+                    shifted_nucleotide.is_canvas_end                = shifted_index == self.num_bases - 1
+                    shifted_nucleotide.is_canvas_start              = shifted_index == 0
+
+                    #next nucleotide doesn't change if it was none or in another vh
+                    next_is_in_other_vh = old_nucleotide.next.vh != old_nucleotide.vh
+                    if next_is_in_other_vh or old_nucleotide.next.vh == None:
+                        shifted_nucleotide.next = old_nucleotide.next
+                    #otherwise shift the index by index_shift
+                    else:
+                        shifted_index_next      = old_nucleotide.next.index + index_shift
+                        shifted_nucleotide.next = self.nucleotide_matrix[vh][shifted_index_next][is_fwd]
+
+                    print([[vh, index], [shifted_nucleotide.vh, shifted_nucleotide.index], [shifted_nucleotide.next.vh, shifted_nucleotide.next.index]])
+
 
 class Oligo:
     '''
@@ -751,11 +810,10 @@ class Nucleotide:
         self.insertion                    = None      # How many insertions in this nucleotide site
 
         self.next                         = None      # Next nucleotide in a strand, if existent
-        self.previous                     = None      # Previous nucleotide in strand, if existent
-        self.strand_end                   = False     # Whether this nucleotide is in the end of a strand
-        self.oligo_end                    = False     # Whether this nucleotide is in the end of a oligo
-        self.canvas_high_end              = False     # Whether this nucleotide is in the end of the canvas (high index)
-        self.canvas_low_end               = False     # Whether this nucleotide is in the beginning of the canvas (low index)
+        self.is_strand_end                = False     # Whether this nucleotide is in the end of a strand
+        self.is_oligo_end                 = False     # Whether this nucleotide is in the end of a oligo
+        self.is_canvas_end                = False     # Whether this nucleotide is in the end of the canvas (high index)
+        self.is_canvas_start              = False     # Whether this nucleotide is in the beginning of the canvas (low index)
 
         self.quaternion                   = None      # quaternion orientation for this nucleotide
         self.vectors_body_frame           = None      # normalized orthogonal vectors in the body reference frame (bases = along WC pairing, axial, orthogonal)
