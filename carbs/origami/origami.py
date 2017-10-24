@@ -4,7 +4,6 @@ import functools
 import sys
 import copy
 
-
 from cadnano.document import Document
 
 from utils import vectortools
@@ -33,23 +32,23 @@ class Origami:
         self.inter_nucleotide_connections  = []
 
         #Cadnano parameters
-        self.part                   = None
-        self.oligos_list            = None
-        self.num_vhs                = None
-        self.num_bases              = None
-        self.nucleotide_matrix      = None   # This is the 'global' information about every nucleotide
+        self.part                          = None
+        self.oligos_list                   = None
+        self.num_vhs                       = None
+        self.num_bases                     = None
+        self.nucleotide_matrix             = None   # This is the 'global' information about every nucleotide
 
-        self.nucleotide_type_list   = None
-        self.nucleotide_type_matrix = None
+        self.nucleotide_type_list          = None
+        self.nucleotide_type_matrix        = None
 
-        self.crossovers             = None
-        self.vh_vh_crossovers       = None   # Given vh1, vh2, vh_vh_crossovers[vh_1][vh_2] is the number of xovers between them
-        self.long_range_connections = {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
-        self.short_range_connections= {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
-        self.skip_connections       = {}     # Dict of pointers referring to nucleotides separated by skip
+        self.crossovers                    = None
+        self.vh_vh_crossovers              = None   # Given vh1, vh2, vh_vh_crossovers[vh_1][vh_2] is the number of xovers between them
+        self.long_range_connections        = {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
+        self.short_range_connections       = {}     # Dict connecting pointer_1 (vh, index, is_fwd) to pointer_2
+        self.skip_connections              = {}     # Dict of pointers referring to nucleotides separated by skip
 
         #Distance constraints
-        self.crossover_distance      = 2.0   # Distance in Angstrom
+        self.crossover_distance            = 2.0   # Distance in Angstrom
 
     def initialize_oligos(self):
         '''
@@ -149,6 +148,7 @@ class Origami:
                     new_nucleotide.vh                = vh
                     new_nucleotide.is_fwd            = is_fwd
                     new_nucleotide.skip              = self.skip_matrix[vh][index][is_fwd]
+                    new_nucleotide.pointer           = [vh, index, is_fwd]
 
                     if p == len(strand.pointers_list) - 1:
                         new_nucleotide.is_strand_end = True
@@ -180,6 +180,7 @@ class Origami:
                         new_nucleotide.vh                  = vh
                         new_nucleotide.is_fwd              = is_fwd
                         new_nucleotide.skip                = None
+                        new_nucleotide.pointer             = [vh, index, is_fwd]
 
                         #check if end or beginning of canvas
                         new_nucleotide.is_canvas_end       = (index == self.num_bases - 1)
@@ -605,8 +606,6 @@ class Origami:
         for vh in range(self.num_vhs):
             for index in range(self.num_bases):
                 for is_fwd in range(2):
-                    # print([vh, index, is_fwd])
-
                     nucleotide = self.nucleotide_matrix[vh][index][is_fwd]
 
                     direction = -(-1)**(is_fwd)
@@ -649,7 +648,16 @@ class Origami:
                                                  nucl_quaternion.y, \
                                                  nucl_quaternion.z]
 
-    def update_shifted_nucleotide(self, old_nucleotide, shifted_nucleotide, index_shift):
+    def update_shifted_nucleotide(self, old_nucleotide, index_shift):
+        '''
+        copy the attributes from old_nucleotide that don't change with shift,
+        then update the ones that do
+        '''
+        [vh, index, is_fwd] = old_nucleotide.pointer
+        shifted_index       = index + index_shift
+        shifted_nucleotide  = self.nucleotide_matrix[vh][shifted_index][is_fwd]
+
+
         #explicit is better than implicit (ZEN)
         #copy old nucleotide values that do not change with shift
         shifted_nucleotide.direction                    = old_nucleotide.direction
@@ -670,6 +678,9 @@ class Origami:
         shifted_nucleotide.index                        = shifted_index
         shifted_nucleotide.is_canvas_end                = shifted_index == self.num_bases - 1
         shifted_nucleotide.is_canvas_start              = shifted_index == 0
+        shifted_nucleotide.pointer                      = [shifted_nucleotide.vh,   \
+                                                           shifted_nucleotide.index, \
+                                                           shifted_nucleotide.is_fwd]
 
         #next nucleotide doesn't change if it was none or in another vh
         next_is_in_other_vh = old_nucleotide.next.vh != old_nucleotide.vh
@@ -745,18 +756,45 @@ class Origami:
                     index_shift        = inserts_in_vh - num_inserted
                     shifted_index      = index + index_shift
 
-                    old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
-                    shifted_nucleotide = self.nucleotide_matrix[vh][shifted_index][is_fwd]
+                    #no need to update anything if all indices have been shifted
+                    if shifted_index == index:
+                        continue
 
-                    num_inserts = self.insert_matrix[old_nucleotide.vh][old_nucleotide.index][old_nucleotide.is_fwd]
-                    if num_inserts is not None:
-                        for inserts in range(num_inserts):
-                            shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, shifted_nucleotide, index_shift)
+                    old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
+
+                    nucleotide_inserts = self.insert_matrix[old_nucleotide.vh][old_nucleotide.index][old_nucleotide.is_fwd]
+                    if nucleotide_inserts is not None:
+                        for inserts in range(nucleotide_inserts):
+                            shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift)
                             num_inserted += 1
                             index_shift   = inserts_in_vh - num_inserted
 
-                    shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, shifted_nucleotide, index_shift)
+                    shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift)
 
+    def update_oligos_list(self):
+        new_oligo_list = []
+        for oligo in self.oligos_list:
+            this_pointer    = oligo.strands_list[0].pointers_list[0]
+            this_nucleotide = self.get_nucleotide(this_pointer)
+            end_of_oligo    = False
+            strand_counter  = 0 #strand number
+            while not end_of_oligo:
+                new_pointers_list    = []
+
+                end_of_strand        = False
+                strand               = oligo.strands_list[strand_counter]
+                new_pointers_list.append(this_nucleotide.pointer)
+
+                while not end_of_strand:
+                    next_nucleotide   = this_nucleotide.next
+                    this_nucleotide   = next_nucleotide
+                    new_pointers_list.append(this_nucleotide.pointer)
+                    end_of_strand     = this_nucleotide.is_strand_end
+                strand.pointers_list = new_pointers_list
+                print(new_pointers_list)
+                strand_counter  += 1
+                end_of_oligo     = this_nucleotide.is_oligo_end
+            print("  ")
 
 class Oligo:
     '''
@@ -766,6 +804,7 @@ class Oligo:
         self.cadnano_oligo     = None                 # Oligo class from cadnano, inherenting all its attributes
         self.is_circular       = False
         self.strands_list      = []                   # Ordered list of strands making up this oligo
+        self.start_pointer     = None                 # P
 
 class Strand:
     '''
@@ -774,29 +813,29 @@ class Strand:
     '''
     def __init__(self):
         #cadnano properties
-        self.vh                 = None
-        self.index_5p           = None
-        self.index_3p           = None
-        self.is_fwd             = None
+        self.vh                = None
+        self.index_5p          = None
+        self.index_3p          = None
+        self.is_fwd            = None
 
         #for carbs usage
-        self.pointers_list      = []                   # Ordered list of pointers in the form [vh, index, is_fwd] for each nucleotide in strand
+        self.pointers_list     = []                   # Ordered list of pointers in the form [vh, index, is_fwd] for each nucleotide in strand
 
 class DSNucleotide:
     '''
     Fwd and Rev (sense/antisense) nucleotides making up a double strand nucleotide
     '''
     def __init__(self):
-        self.fwd_nucleotide     = None                 # Nucleotide in forward direction (reference frame)
-        self.rev_nucleotide     = None                 # Nucleotide in reverse direction
-        self.type               = 1                    # 1: double strand (dsDNA)
-        self.visited            = False                # To be used by depth-first-search
-        self.rigid              = False
-        self.skip               = None                 # Whether this nucleotide is a skip in cadnano
+        self.fwd_nucleotide    = None                 # Nucleotide in forward direction (reference frame)
+        self.rev_nucleotide    = None                 # Nucleotide in reverse direction
+        self.type              = 1                    # 1: double strand (dsDNA)
+        self.visited           = False                # To be used by depth-first-search
+        self.rigid             = False
+        self.skip              = None                 # Whether this nucleotide is a skip in cadnano
 
         #Connections
-        self.rigid_connections  = []                   # List of rigid connections
-        self.skip_connections   = []                   # List of soft connections
+        self.rigid_connections = []                   # List of rigid connections
+        self.skip_connections  = []                   # List of soft connections
 
 class SSNucleotide:
     '''
@@ -825,6 +864,7 @@ class Nucleotide:
         self.vh                           = None      # Nucleotide's virtual helix
         self.skip                         = False     # Whether the nucleotide is a skip
         self.inserts                      = None      # How many insertions in this nucleotide site
+        self.pointer                      = [self.vh, self.index, self.is_fwd]
 
         self.next                         = None      # Next nucleotide in a strand, if existent
         self.is_strand_end                = False     # Whether this nucleotide is in the end of a strand
