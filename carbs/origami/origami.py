@@ -37,6 +37,7 @@ class Origami:
         self.num_vhs                       = None
         self.num_bases                     = None
         self.nucleotide_matrix             = None   # This is the 'global' information about every nucleotide
+        self.insert_update_dict            = {}     # dict of old -> new pointers to be used when updating nucleotides in origami w/ inserts
 
         self.nucleotide_type_list          = None
         self.nucleotide_type_matrix        = None
@@ -65,6 +66,12 @@ class Origami:
             new_oligo.is_circular   = cadnano_oligo.isCircular()
 
             generator               = cadnano_oligo.strand5p().generator3pStrand()
+            # get 5' end and add to start_pointer in oligo
+            first_strand             = next(generator)
+            new_oligo.start_pointer  = [first_strand.idNum(), first_strand.idx5Prime(), first_strand.isForward()]
+            # restart generator
+            generator               = cadnano_oligo.strand5p().generator3pStrand()
+
             for cadnano_strand in generator:
                 new_strand = Strand()
 
@@ -78,7 +85,6 @@ class Origami:
                 new_strand.pointers_list = []
                 for i in range(new_strand.index_5p, new_strand.index_3p + direction, direction):
                     new_strand.pointers_list.append([new_strand.vh, i, int(new_strand.is_fwd)])
-
                 new_oligo.strands_list.append(new_strand)
 
             self.oligos_list.append(new_oligo)
@@ -160,6 +166,10 @@ class Origami:
                         new_nucleotide.is_canvas_end = True
                     if index == 0:
                         new_nucleotide.is_canvas_start  = True
+
+                    #check if start of the oligo
+                    if oligo.start_pointer == new_nucleotide.pointer:
+                        new_nucleotide.is_oligo_start = True
 
                     #Assign the nucleotide
                     self.nucleotide_matrix[vh][index][is_fwd] = new_nucleotide
@@ -668,6 +678,7 @@ class Origami:
         shifted_nucleotide.inserts                      = old_nucleotide.inserts
         shifted_nucleotide.is_strand_end                = old_nucleotide.is_strand_end
         shifted_nucleotide.is_oligo_end                 = old_nucleotide.is_oligo_end
+        shifted_nucleotide.is_oligo_start               = old_nucleotide.is_oligo_start
         shifted_nucleotide.vectors_body_frame           = old_nucleotide.vectors_body_frame
         shifted_nucleotide.body                         = old_nucleotide.body
         shifted_nucleotide.body_num                     = old_nucleotide.body_num
@@ -681,23 +692,16 @@ class Origami:
         shifted_nucleotide.pointer                      = [shifted_nucleotide.vh,   \
                                                            shifted_nucleotide.index, \
                                                            shifted_nucleotide.is_fwd]
+        old_pointer                                     = old_nucleotide.pointer
+        self.insert_update_dict[tuple(old_pointer)]     = shifted_nucleotide.pointer
 
-        #next nucleotide doesn't change if it was none or in another vh
-        next_is_in_other_vh = old_nucleotide.next.vh != old_nucleotide.vh
-        if next_is_in_other_vh or old_nucleotide.next.vh == None:
-            shifted_nucleotide.next = old_nucleotide.next
-        #otherwise shift the index by index_shift
-        else:
-            shifted_index_next      = old_nucleotide.next.index + index_shift
-            vh                      = old_nucleotide.vh
-            is_fwd                  = old_nucleotide.is_fwd
-            shifted_nucleotide.next = self.nucleotide_matrix[vh][shifted_index_next][is_fwd]
+        # keep the nucleotide's next pointing to the original one, this will be updated later in calculate_next_nucleotide
+        shifted_nucleotide.next                         = old_nucleotide.next
 
         return(shifted_nucleotide)
 
     def calculate_next_nucleotide(self):
         '''
-        Starting at the rightmost base for each vh,
         '''
         #1. populate who's next by following strands along oligo (ignore skips for now)
         for o, oligo in enumerate(self.oligos_list):
@@ -757,8 +761,8 @@ class Origami:
                     shifted_index      = index + index_shift
 
                     #no need to update anything if all indices have been shifted
-                    if shifted_index == index:
-                        continue
+                    # if shifted_index == index:
+                        # continue
 
                     old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
 
@@ -771,11 +775,21 @@ class Origami:
 
                     shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift)
 
+        #3. Now that all nucleotides have been shifted, update 'next' based on dictionary of tuples
+        for old_pointer in self.insert_update_dict:
+            shifted_pointer         = self.insert_update_dict[old_pointer]
+            shifted_nucleotide      = self.get_nucleotide(shifted_pointer)
+            next_pointer            = shifted_nucleotide.next.pointer
+            #update the nucleotide shifted is pointing to
+            next_pointer_updated    = self.insert_update_dict[tuple(next_pointer)]
+            shifted_nucleotide.next = self.get_nucleotide(next_pointer_updated)
+
+
     def update_oligos_list(self):
         new_oligo_list = []
         for oligo in self.oligos_list:
-            this_pointer    = oligo.strands_list[0].pointers_list[0]
-            this_nucleotide = self.get_nucleotide(this_pointer)
+            start_pointer    = oligo.start_pointer
+            this_nucleotide = self.get_nucleotide(start_pointer)
             end_of_oligo    = False
             strand_counter  = 0 #strand number
             while not end_of_oligo:
@@ -783,18 +797,26 @@ class Origami:
 
                 end_of_strand        = False
                 strand               = oligo.strands_list[strand_counter]
+
                 new_pointers_list.append(this_nucleotide.pointer)
 
                 while not end_of_strand:
                     next_nucleotide   = this_nucleotide.next
+                    new_pointers_list.append(next_nucleotide.pointer)
+
                     this_nucleotide   = next_nucleotide
-                    new_pointers_list.append(this_nucleotide.pointer)
                     end_of_strand     = this_nucleotide.is_strand_end
-                strand.pointers_list = new_pointers_list
                 print(new_pointers_list)
-                strand_counter  += 1
+                strand.pointers_list  = new_pointers_list
+
                 end_of_oligo     = this_nucleotide.is_oligo_end
-            print("  ")
+
+                # if strand_end but not oligo_end, move nucleotide pointer to next strand
+                if not end_of_oligo:
+                    this_nucleotide = this_nucleotide.next
+
+                strand_counter  += 1
+            # print("  ")
 
 class Oligo:
     '''
@@ -804,7 +826,7 @@ class Oligo:
         self.cadnano_oligo     = None                 # Oligo class from cadnano, inherenting all its attributes
         self.is_circular       = False
         self.strands_list      = []                   # Ordered list of strands making up this oligo
-        self.start_pointer     = None                 # P
+        self.start_pointer     = None
 
 class Strand:
     '''
@@ -868,7 +890,8 @@ class Nucleotide:
 
         self.next                         = None      # Next nucleotide in a strand, if existent
         self.is_strand_end                = False     # Whether this nucleotide is in the end of a strand
-        self.is_oligo_end                 = False     # Whether this nucleotide is in the end of a oligo
+        self.is_oligo_end                 = False     # Whether this nucleotide is in the end of an oligo
+        self.is_oligo_start               = False     # Whether this nucleotide is in the beginning of an oligo
         self.is_canvas_end                = False     # Whether this nucleotide is in the end of the canvas (high index)
         self.is_canvas_start              = False     # Whether this nucleotide is in the beginning of the canvas (low index)
 
