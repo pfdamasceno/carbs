@@ -63,11 +63,11 @@ class CGSimulation:
         oligos_list = self.origami.oligos_list
 
         bkbone_positions = [self.origami.get_nucleotide(pointer).position[1] \
-             for chain in oligos_list for strand in chain for pointer in strand \
+             for oligo in oligos_list for strand in oligo.strands_list for pointer in strand.pointers_list \
              if not self.origami.get_nucleotide(pointer).skip]
 
         nucl_quaternions = [self.origami.get_nucleotide(pointer).quaternion \
-             for chain in oligos_list for strand in chain for pointer in strand \
+             for oligo in oligos_list for strand in oligo.strands_list for pointer in strand.pointers_list \
              if not self.origami.get_nucleotide(pointer).skip]
 
         self.num_nucleotides = len(bkbone_positions)
@@ -87,9 +87,9 @@ class CGSimulation:
 
         #record particle types and update simulation_nucleotide_num
         i = 0
-        for chain in oligos_list:
-            for strand in chain:
-                for pointer in strand:
+        for oligo in oligos_list:
+            for strand in oligo.strands_list:
+                for pointer in strand.pointers_list:
                     if not self.origami.get_nucleotide_type(pointer).skip:
                         # self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
                         self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
@@ -108,7 +108,7 @@ class CGSimulation:
         Create backbone-base and backbone-orthogonal rigid bonds in every particle
         '''
         oligos_list = self.origami.oligos_list
-        pointer_0   = oligos_list[0][0][0]
+        pointer_0   = oligos_list[0].strands_list[0].pointers_list[0]
         nucl_0      = self.origami.get_nucleotide(pointer_0)
         nucl_0_vecs = np.array(nucl_0.vectors_body_frame)
 
@@ -128,14 +128,14 @@ class CGSimulation:
         num_backbones            = self.num_nucleotides
         index_1st_nucl_in_strand = 0
 
-        for c, chain in enumerate(oligos_list):
-            for s, strand in enumerate(oligos_list[c]):
+        for c, oligo in enumerate(oligos_list):
+            for s, strand in enumerate(oligos.strands_list):
                 this_bead        = None
                 next_bead        = None
                 non_skip_counter = 0
-                for n, nucl in enumerate(oligos_list[c][s]):
+                for n, nucl in enumerate(strand.pointers_list):
 
-                    pointer_1 = self.origami.oligos_list_to_nucleotide_info(c,s,n)
+                    pointer_1 = nucl.pointer
                     # test whether 1st nucleotide is not skip
                     if not self.origami.get_nucleotide_type(pointer_1).skip:
 
@@ -147,7 +147,7 @@ class CGSimulation:
                         nucl_1.vectors_simulation_nums = [base_1, orth_1]
 
                         # test if end of chain
-                        if n == len(oligos_list[c][s]) - 1:
+                        if nucl.is_oligo_end:
                             non_skip_counter += 1
                             continue
 

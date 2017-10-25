@@ -806,7 +806,6 @@ class Origami:
 
                     this_nucleotide   = next_nucleotide
                     end_of_strand     = this_nucleotide.is_strand_end
-                print(new_pointers_list)
                 strand.pointers_list  = new_pointers_list
 
                 end_of_oligo     = this_nucleotide.is_oligo_end
@@ -816,7 +815,6 @@ class Origami:
                     this_nucleotide = this_nucleotide.next
 
                 strand_counter  += 1
-            # print("  ")
 
 class Oligo:
     '''
