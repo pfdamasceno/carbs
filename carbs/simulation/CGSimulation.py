@@ -74,7 +74,7 @@ class CGSimulation:
 
         self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
                                           box            = data.boxdim(Lx=100, Ly=100, Lz=100),
-                                          particle_types =['backbone','sidechain','aux'],
+                                          particle_types = ['backbone','sidechain','aux'],
                                           bond_types     = self.bond_types,
                                           angle_types    = self.angle_types,
                                           dihedral_types = self.dihedral_types
@@ -83,7 +83,6 @@ class CGSimulation:
         self.snapshot.particles.position[:]       = bkbone_positions
         self.snapshot.particles.orientation[:]    = nucl_quaternions
         self.snapshot.particles.moment_inertia[:] = [[100., 100., 100.]]
-        # self.snapshot.particles.typeid[:] = [0];
 
         #record particle types and update simulation_nucleotide_num
         i = 0
