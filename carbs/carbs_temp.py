@@ -11,31 +11,30 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_2hb_insert'
+FILENAME = 'PFD_6hb_long'
 INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
 OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
 OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
-PICKLE_FILE       = 'data/origami_relaxed.pckl'
+PICKLE_FILE       = 'data/' + FILENAME + '.pckl'
 
 doc.readFile(INPUT_FILENAME);
 
-#Parse the structure for simulation
-new_origami      = origami.Origami()
-new_origami.part = doc.activePart()
-new_origami.initialize_oligos()
-new_origami.initialize_nucleotide_matrix()
-new_origami.populate_skips_inserts_matrix()
-new_origami.populate_nucleotide_matrix()
-new_origami.get_connections()
-new_origami.assign_nucleotide_types()
-new_origami.assign_nucleotide_connections()
-new_origami.cluster_into_bodies()
-new_origami.parse_skip_connections()
-new_origami.calculate_nucleotide_quaternions()
-new_origami.calculate_next_nucleotide()
-
-new_origami.update_oligos_list()
-
+# #Parse the structure for simulation
+# new_origami      = origami.Origami()
+# new_origami.part = doc.activePart()
+# new_origami.initialize_oligos()
+# new_origami.initialize_nucleotide_matrix()
+# new_origami.populate_skips_inserts_matrix()
+# new_origami.populate_nucleotide_matrix()
+# new_origami.get_connections()
+# new_origami.assign_nucleotide_types()
+# new_origami.assign_nucleotide_connections()
+# new_origami.cluster_into_bodies()
+# new_origami.parse_skip_connections()
+# new_origami.calculate_next_nucleotide()
+# new_origami.calculate_nucleotide_quaternions()
+# new_origami.update_oligos_list()
+#
 # relax_simulation         = RBSimulation.RigidBodySimulation()
 # relax_simulation.origami = new_origami
 # relax_simulation.initialize_relax_md()
@@ -65,7 +64,7 @@ cg_simulation.set_dihedral_bonds()
 
 cg_simulation.set_wca_potentials()
 cg_simulation.fix_diameters()
-cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1)
+cg_simulation.dump_settings(OUTPUT_FILENAME_2, 10000)
 cg_simulation.integration()
 
-cg_simulation.run(100)
+cg_simulation.run(100000)

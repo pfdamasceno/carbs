@@ -23,8 +23,8 @@ class CGSimulation:
         self.snapshot                = None
 
         self.particle_types          = ['backbone','sidechain','aux']
-        self.bond_types              = ['backbone', 'watson_crick']
-        self.angle_types             = ['axis']
+        self.bond_types              = ['backbone', 'watson_crick', 'axis']
+        self.angle_types             = ['watson_crick_angle', 'axis_angle', 'bckb_axis_angle']
         self.dihedral_types          = ['dihedral1', \
                                         'dihedral2',\
                                         'dihedral3',\
@@ -170,51 +170,77 @@ class CGSimulation:
                     continue
 
                 pair_nucleotide     = self.origami.nucleotide_matrix[vh][index][1 - is_fwd]
-                base_1 = this_nucleotide.vectors_simulation_nums[0]
-                base_2 = pair_nucleotide.vectors_simulation_nums[0]
+                base_1              = this_nucleotide.vectors_simulation_nums[0]
+                base_2              = pair_nucleotide.vectors_simulation_nums[0]
                 self.system.bonds.add(self.bond_types[1], base_1, base_2)
+
+                this_sim_num        = this_nucleotide.simulation_nucleotide_num
+                pair_sim_num        = pair_nucleotide.simulation_nucleotide_num
+
+                self.system.angles.add(self.angle_types[0], \
+                                              this_sim_num, \
+                                                    base_1, \
+                                              pair_sim_num)
 
                 this_nucleotide = this_nucleotide.next
 
 
     def create_adjacent_bonds(self):
         '''
-        Create spring bonds between adjacent (neighboring) particles
-        If neighbor is skip, find 'end' of skip region and add next bead as neighbor
+        Create spring bonds between adjacent (neighboring) backbone particles
+        and angular bond between axial particles
         '''
 
         # wrong! axis particles dont make bonds across strands !
 
         oligos_list = self.origami.oligos_list
         for o, oligo in enumerate(oligos_list):
-            oligo_is_circular = self.origami.oligos_type_list[o]
-            for s, strand in enumerate(oligos_list[o]):
-                for p, pointer in enumerate(oligos_list[o][s]):
-                    this_nucleotide = self.origami.get_nucleotide(pointer)
+            for s, strand in enumerate(oligo.strands_list):
+                for p, pointer in enumerate(strand.pointers_list):
+                    [vh, index, is_fwd] = pointer
+                    this_nucleotide     = self.origami.get_nucleotide(pointer)
 
                     #test for end of oligo in non-circular oligo
-                    if this_nucleotide.oligo_end == True and oligo_is_circular == False:
+                    if this_nucleotide.is_oligo_end == True and oligo.is_circular == False:
                         continue
 
-                    if this_nucleotide.skip == True:
-                        continue
+                    # make bonds with next neighbor
+                    next_nucleotide     = this_nucleotide.next
+                    this_sim_num        = this_nucleotide.simulation_nucleotide_num
+                    next_sim_num        = next_nucleotide.simulation_nucleotide_num
 
-                    #else make bonds with next neighbor
-                    next_nucleotide = this_nucleotide.next_nucleotide
-                    this_sim_num    = this_nucleotide.simulation_nucleotide_num
-                    next_sim_num    = next_nucleotide.simulation_nucleotide_num
                     self.system.bonds.add(self.bond_types[0], this_sim_num, next_sim_num)
 
+                    # make angular bonds between wc
+
+
                     # if this and next nucleotides are not end of a strand
-                    if this_nucleotide.strand_end == False and \
-                       next_nucleotide.strand_end == False:
-                        third_nucleotide = next_nucleotide.next_nucleotide
+                    # make angular bond between triplets of axial particles
+                    if not this_nucleotide.is_strand_end and not next_nucleotide.is_strand_end:
+                        third_nucleotide = next_nucleotide.next
 
                         this_axis_sim_num  = this_nucleotide.vectors_simulation_nums[0]
                         next_axis_sim_num  = next_nucleotide.vectors_simulation_nums[0]
-                        third_axis_sim_num = third_nucleotide.vectors_simulation_nums[0]
 
-                        self.system.angles.add(self.angle_types[0], this_axis_sim_num, next_axis_sim_num, third_axis_sim_num)
+                        self.system.bonds.add(self.bond_types[2], this_axis_sim_num, next_axis_sim_num)
+
+                        third_axis_sim_num = third_nucleotide.vectors_simulation_nums[0]
+                        self.system.angles.add(self.angle_types[1], \
+                                                 this_axis_sim_num, \
+                                                 next_axis_sim_num, \
+                                                 third_axis_sim_num)
+                        #check if ssDNA
+                        is_dsDNA = self.origami.nucleotide_type_matrix[vh][index].type
+                        if not is_dsDNA:
+                            continue
+                        self.system.angles.add(self.angle_types[2], \
+                                                 next_axis_sim_num, \
+                                                 this_axis_sim_num, \
+                                                 this_sim_num)
+                        self.system.angles.add(self.angle_types[2], \
+                                                 next_axis_sim_num, \
+                                                 this_axis_sim_num, \
+                                                 next_sim_num)
 
     def set_harmonic_bonds(self):
         '''
@@ -223,9 +249,12 @@ class CGSimulation:
         self.harmonic = md.bond.harmonic()
         self.harmonic.bond_coeff.set('backbone'    , k=5.0 , r0=0.75);
         self.harmonic.bond_coeff.set('watson_crick', k=500.0 , r0=0.0);
+        self.harmonic.bond_coeff.set('axis'        , k=500.0 , r0=0.332);
 
         self.angle_harmonic = md.angle.harmonic()
-        self.angle_harmonic.angle_coeff.set('axis', k=20, t0=3.1415)
+        self.angle_harmonic.angle_coeff.set('watson_crick_angle', k=20, t0=3.1415) #how resistant to bending is a dsDNA
+        self.angle_harmonic.angle_coeff.set('axis_angle'        , k=10, t0=3.1415)         #how resistant to bending is a nucl wrt its watson_crick pair
+        self.angle_harmonic.angle_coeff.set('bckb_axis_angle'   , k=10, t0=3.1415/2.)
 
     def set_dihedral_bonds(self):
         '''
@@ -238,10 +267,10 @@ class CGSimulation:
             return(V, F)
 
         dtable = md.dihedral.table(width=1000)
-        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=1, theta0=-1.571)) #+Pi: why?
+        dtable.dihedral_coeff.set('dihedral1', func=harmonic_angle, coeff=dict(kappa=1, theta0=-1.571)) #+Pi (?)
         dtable.dihedral_coeff.set('dihedral2', func=harmonic_angle, coeff=dict(kappa=1, theta0=-0.598))
         dtable.dihedral_coeff.set('dihedral3', func=harmonic_angle, coeff=dict(kappa=10, theta0=+0.559))
-        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.317 - np.pi)) #-Pi: why?
+        dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.317 - np.pi)) #-Pi (?)
         dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.280))
 
 
@@ -265,7 +294,7 @@ class CGSimulation:
         for i in range(0, self.num_nucleotides):
             self.system.particles[i].diameter = 0.75
         for i in range(self.num_nucleotides, len(self.system.particles), 2):
-            self.system.particles[i].diameter = 0.5
+            self.system.particles[i].diameter = 0.332
             self.system.particles[i + 1].diameter = 0.1
 
     def dump_settings(self,output_fname,period):
