@@ -120,29 +120,28 @@ class CGSimulation:
 
     def create_dihedral_bonds(self):
         '''
-        Create dihedral bonds between beads
+        Create dihedral bonds between nucleotides
         '''
-        oligos_list              = self.origami.oligos_list
         num_backbones            = self.num_nucleotides
         index_1st_nucl_in_strand = 0
 
-        for o, oligo in enumerate(oligos_list):
+        for oligo in self.origami.oligos_list:
             oligo_start_pointer  = oligo.start_pointer
-            this_bead            = self.origami.get_nucleotide(oligo_start_pointer)
+            this_nucleotide      = self.origami.get_nucleotide(oligo_start_pointer)
 
-            while not this_bead.is_oligo_end:
+            while not this_nucleotide.is_oligo_end:
+                next_nucleotide  = this_nucleotide.next
 
-                bckb_1 = this_bead.simulation_nucleotide_num
-                base_1 = num_backbones + 2*bckb_1
-                orth_1 = num_backbones + 2*bckb_1 + 1
+                bckb_1           = this_nucleotide.simulation_nucleotide_num
+                base_1           = num_backbones + 2*bckb_1
+                orth_1           = num_backbones + 2*bckb_1 + 1
 
-                next_bead  = this_bead.next
-                bckb_2 = next_bead.simulation_nucleotide_num
-                base_2 = num_backbones + 2*bckb_2
-                orth_2 = num_backbones + 2*bckb_2 + 1
+                bckb_2           = next_nucleotide.simulation_nucleotide_num
+                base_2           = num_backbones + 2*bckb_2
+                orth_2           = num_backbones + 2*bckb_2 + 1
 
-                this_bead.vectors_simulation_nums = [base_1, orth_1]
-                next_bead.vectors_simulation_nums = [base_2, orth_2]
+                this_nucleotide.vectors_simulation_nums = [base_1, orth_1]
+                next_nucleotide.vectors_simulation_nums = [base_2, orth_2]
 
                 self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
                 self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
@@ -150,88 +149,33 @@ class CGSimulation:
                 self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
                 self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
 
-                this_bead = next_bead
+                this_nucleotide = next_nucleotide
                 # print([bckb_1, base_1, orth_1, bckb_2, base_2, orth_2])
-            #
-            # for s, strand in enumerate(oligo.strands_list):
-            #     this_bead        = None
-            #     next_bead        = None
-            #     non_skip_counter = 0
-            #     for p, pointer_1 in enumerate(strand.pointers_list):
-            #
-            #         nucl_1 = self.origami.get_nucleotide(pointer_1)
-            #
-            #         # test whether 1st nucleotide is not skip
-            #         if not nucl_1.skip:
-            #
-            #             bckb_1 = index_1st_nucl_in_strand + non_skip_counter
-            #             base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
-            #             orth_1 = base_1 + 1
-            #
-            #             nucl_1.vectors_simulation_nums = [base_1, orth_1]
-            #
-            #             # test if end of chain
-            #             if nucl_1.is_oligo_end:
-            #                 non_skip_counter += 1
-            #                 continue
-            #             if nucl_1.is_strand_end:
-            #                 strand = oligo.strands_list[s + 1]
-            #                 continue
-            #
-            #             this_bead = nucl_1.simulation_nucleotide_num
-            #             non_skip_counter += 1
-            #
-            #         # now try to find the nucleotide the first bead connects to
-            #         pointer_2 = strand.pointers_list[p + 1]
-            #         nucl_2    = self.origami.get_nucleotide(pointer_2)
-            #         # test whether 2nd nucleotide is not skip
-            #         if not nucl_2.skip:
-            #             next_bead = nucl_2.simulation_nucleotide_num
-            #
-            #             bckb_2 = index_1st_nucl_in_strand + non_skip_counter
-            #             base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
-            #             orth_2 = base_2 + 1
-            #
-            #         # test whether we found 1st and 2nd non-skip nucleotides
-            #         if this_bead != None and next_bead != None:
-            #             self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
-            #             self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
-            #             self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
-            #             self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
-            #             self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
-            #             this_bead = None
-            #             next_bead = None
-            #
-            #     index_1st_nucl_in_strand += non_skip_counter
 
     def create_watson_crick_bonds(self):
         '''
         Create bonds between axial particles in dsDNA
         '''
+        for oligo in self.origami.oligos_list:
+            oligo_start_pointer  = oligo.start_pointer
+            this_nucleotide      = self.origami.get_nucleotide(oligo_start_pointer)
 
-        for vh in range(len(self.origami.nucleotide_matrix)):
-            for idx in range(len(self.origami.nucleotide_matrix[vh])):
-                for is_fwd in range(2):
+            while not this_nucleotide.is_oligo_end:
+                [vh, index, is_fwd] = this_nucleotide.pointer
 
-                    # check if nucleotide exists
-                    if self.origami.nucleotide_matrix[vh][idx][is_fwd] is None:
-                        continue
+                #check if ssDNA
+                is_dsDNA = self.origami.nucleotide_type_matrix[vh][index].type
+                if not is_dsDNA:
+                    this_nucleotide = this_nucleotide.next
+                    continue
 
-                    # check if single stranded DNA
-                    is_dsDNA = self.origami.nucleotide_type_matrix[vh][idx].type
-                    if is_dsDNA == False:
-                        continue
+                pair_nucleotide     = self.origami.nucleotide_matrix[vh][index][1 - is_fwd]
+                base_1 = this_nucleotide.vectors_simulation_nums[0]
+                base_2 = pair_nucleotide.vectors_simulation_nums[0]
+                self.system.bonds.add(self.bond_types[1], base_1, base_2)
 
-                    nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
-                    if nucleotide.skip == True:
-                        continue
+                this_nucleotide = this_nucleotide.next
 
-                    nucl_1 = self.origami.nucleotide_matrix[vh][idx][is_fwd]
-                    nucl_2 = self.origami.nucleotide_matrix[vh][idx][1 - is_fwd]
-                    base_1 = nucl_1.vectors_simulation_nums[0]
-                    base_2 = nucl_2.vectors_simulation_nums[0]
-
-                    self.system.bonds.add(self.bond_types[1], base_1, base_2)
 
     def create_adjacent_bonds(self):
         '''
