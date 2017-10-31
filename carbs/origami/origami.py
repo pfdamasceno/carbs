@@ -666,8 +666,11 @@ class Origami:
         '''
         [vh, index, is_fwd] = old_nucleotide.pointer
         shifted_index       = index + index_shift
-        shifted_nucleotide  = self.nucleotide_matrix[vh][shifted_index][is_fwd]
 
+        try:
+            shifted_nucleotide  = self.nucleotide_matrix[vh][shifted_index][is_fwd]
+        except IndexError:
+            sys.exit('not enough bases in canvas to add all inserts')
 
         #explicit is better than implicit (ZEN)
         #copy old nucleotide values that do not change with shift
