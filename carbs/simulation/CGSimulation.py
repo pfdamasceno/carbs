@@ -85,14 +85,13 @@ class CGSimulation:
         self.snapshot.particles.moment_inertia[:] = [[100., 100., 100.]]
 
         #record particle types and update simulation_nucleotide_num
-        i = 0
+        n = 0
         for oligo in oligos_list:
             for strand in oligo.strands_list:
                 for pointer in strand.pointers_list:
                     if not self.origami.get_nucleotide_type(pointer).skip:
-                        # self.snapshot.particles.typeid[i] = self.origami.get_nucleotide_type(pointer).type
-                        self.origami.get_nucleotide(pointer).simulation_nucleotide_num = i
-                        i += 1
+                        self.origami.get_nucleotide(pointer).simulation_nucleotide_num = n
+                        n += 1
 
         #random initial velocity
         self.snapshot.particles.velocity[:] = np.random.normal(0.0, np.sqrt(0.8 / 1.0), [self.snapshot.particles.N, 3]);
@@ -127,55 +126,83 @@ class CGSimulation:
         num_backbones            = self.num_nucleotides
         index_1st_nucl_in_strand = 0
 
-        for c, oligo in enumerate(oligos_list):
-            for s, strand in enumerate(oligos.strands_list):
-                this_bead        = None
-                next_bead        = None
-                non_skip_counter = 0
-                for n, nucl in enumerate(strand.pointers_list):
+        for o, oligo in enumerate(oligos_list):
+            oligo_start_pointer  = oligo.start_pointer
+            this_bead            = self.origami.get_nucleotide(oligo_start_pointer)
 
-                    pointer_1 = nucl.pointer
-                    # test whether 1st nucleotide is not skip
-                    if not self.origami.get_nucleotide_type(pointer_1).skip:
+            while not this_bead.is_oligo_end:
 
-                        bckb_1 = index_1st_nucl_in_strand + non_skip_counter
-                        base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
-                        orth_1 = base_1 + 1
+                bckb_1 = this_bead.simulation_nucleotide_num
+                base_1 = num_backbones + 2*bckb_1
+                orth_1 = num_backbones + 2*bckb_1 + 1
 
-                        nucl_1 = self.origami.get_nucleotide(pointer_1)
-                        nucl_1.vectors_simulation_nums = [base_1, orth_1]
+                next_bead  = this_bead.next
+                bckb_2 = next_bead.simulation_nucleotide_num
+                base_2 = num_backbones + 2*bckb_2
+                orth_2 = num_backbones + 2*bckb_2 + 1
 
-                        # test if end of chain
-                        if nucl.is_oligo_end:
-                            non_skip_counter += 1
-                            continue
+                this_bead.vectors_simulation_nums = [base_1, orth_1]
+                next_bead.vectors_simulation_nums = [base_2, orth_2]
 
-                        this_bead = nucl_1.simulation_nucleotide_num
-                        non_skip_counter += 1
+                self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
+                self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
+                self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
+                self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
+                self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
 
-                    # now try to find the nucleotide the first bead connects to
-                    pointer_2 = self.origami.oligos_list_to_nucleotide_info(c,s,n+1)
-
-                    # test whether 2nd nucleotide is not skip
-                    if not self.origami.get_nucleotide_type(pointer_2).skip:
-                        nucl_2    = self.origami.get_nucleotide(pointer_2)
-                        next_bead = nucl_2.simulation_nucleotide_num
-
-                        bckb_2 = index_1st_nucl_in_strand + non_skip_counter
-                        base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
-                        orth_2 = base_2 + 1
-
-                    # test whether we found 1st and 2nd non-skip nucleotides
-                    if this_bead != None and next_bead != None:
-                        self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
-                        self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
-                        self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
-                        self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
-                        self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
-                        this_bead = None
-                        next_bead = None
-
-                index_1st_nucl_in_strand += non_skip_counter
+                this_bead = next_bead
+                # print([bckb_1, base_1, orth_1, bckb_2, base_2, orth_2])
+            #
+            # for s, strand in enumerate(oligo.strands_list):
+            #     this_bead        = None
+            #     next_bead        = None
+            #     non_skip_counter = 0
+            #     for p, pointer_1 in enumerate(strand.pointers_list):
+            #
+            #         nucl_1 = self.origami.get_nucleotide(pointer_1)
+            #
+            #         # test whether 1st nucleotide is not skip
+            #         if not nucl_1.skip:
+            #
+            #             bckb_1 = index_1st_nucl_in_strand + non_skip_counter
+            #             base_1 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
+            #             orth_1 = base_1 + 1
+            #
+            #             nucl_1.vectors_simulation_nums = [base_1, orth_1]
+            #
+            #             # test if end of chain
+            #             if nucl_1.is_oligo_end:
+            #                 non_skip_counter += 1
+            #                 continue
+            #             if nucl_1.is_strand_end:
+            #                 strand = oligo.strands_list[s + 1]
+            #                 continue
+            #
+            #             this_bead = nucl_1.simulation_nucleotide_num
+            #             non_skip_counter += 1
+            #
+            #         # now try to find the nucleotide the first bead connects to
+            #         pointer_2 = strand.pointers_list[p + 1]
+            #         nucl_2    = self.origami.get_nucleotide(pointer_2)
+            #         # test whether 2nd nucleotide is not skip
+            #         if not nucl_2.skip:
+            #             next_bead = nucl_2.simulation_nucleotide_num
+            #
+            #             bckb_2 = index_1st_nucl_in_strand + non_skip_counter
+            #             base_2 = num_backbones + 2*index_1st_nucl_in_strand + 2*non_skip_counter
+            #             orth_2 = base_2 + 1
+            #
+            #         # test whether we found 1st and 2nd non-skip nucleotides
+            #         if this_bead != None and next_bead != None:
+            #             self.system.dihedrals.add('dihedral1', orth_1, bckb_1, base_1, base_2)
+            #             self.system.dihedrals.add('dihedral2', bckb_1, base_1, base_2, bckb_2)
+            #             self.system.dihedrals.add('dihedral3', base_1, bckb_1, orth_1, bckb_2)
+            #             self.system.dihedrals.add('dihedral4', orth_1, bckb_1, base_1, bckb_2)
+            #             self.system.dihedrals.add('dihedral5', base_1, bckb_1, orth_1, base_2)
+            #             this_bead = None
+            #             next_bead = None
+            #
+            #     index_1st_nucl_in_strand += non_skip_counter
 
     def create_watson_crick_bonds(self):
         '''
