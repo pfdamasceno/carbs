@@ -155,6 +155,7 @@ class Origami:
                     new_nucleotide.is_fwd            = is_fwd
                     new_nucleotide.skip              = self.skip_matrix[vh][index][is_fwd]
                     new_nucleotide.pointer           = [vh, index, is_fwd]
+                    new_nucleotide.oligo             = oligo
 
                     if p == len(strand.pointers_list) - 1:
                         new_nucleotide.is_strand_end = True
@@ -676,12 +677,13 @@ class Origami:
         shifted_nucleotide.vh                        = old_nucleotide.vh
         shifted_nucleotide.skip                      = old_nucleotide.skip
         shifted_nucleotide.inserts                   = old_nucleotide.inserts
-        shifted_nucleotide.is_strand_end             = old_nucleotide.is_strand_end
         shifted_nucleotide.is_oligo_end              = old_nucleotide.is_oligo_end
-        shifted_nucleotide.is_oligo_start            = old_nucleotide.is_oligo_start
+        shifted_nucleotide.is_strand_end             = old_nucleotide.is_strand_end
         shifted_nucleotide.vectors_body_frame        = old_nucleotide.vectors_body_frame
         shifted_nucleotide.body                      = old_nucleotide.body
         shifted_nucleotide.body_num                  = old_nucleotide.body_num
+
+        shifted_nucleotide.oligo                     = old_nucleotide.oligo
 
         #now update the values that do change with shift
         shifted_index                                = old_nucleotide.index + index_shift
@@ -692,6 +694,13 @@ class Origami:
         shifted_nucleotide.pointer                   = [shifted_nucleotide.vh,   \
                                                            shifted_nucleotide.index, \
                                                            shifted_nucleotide.is_fwd]
+
+        shifted_nucleotide.is_oligo_start            = old_nucleotide.is_oligo_start
+        #update oligo's starting point
+        if shifted_nucleotide.is_oligo_start:
+            shifted_nucleotide.oligo.start_pointer   = shifted_nucleotide.pointer
+
+        #update the dictionary containint old->new correspondence (to be used for inserts)
         old_pointer                                  = tuple(old_nucleotide.pointer)
         old_pointer                                 += (insert_num,)
         new_pointer                                  = shifted_nucleotide.pointer
@@ -764,19 +773,35 @@ class Origami:
                     shifted_index      = index + index_shift
                     old_nucleotide     = self.nucleotide_matrix[vh][index][is_fwd]
 
-                    has_inserts = self.insert_matrix[old_nucleotide.vh][old_nucleotide.index][old_nucleotide.is_fwd]
-                    local_inserts = 0
-                    if has_inserts is not None:
-                        num_inserts   = has_inserts
-                        # print(old_nucleotide.pointer)
-                        for inserts in range(num_inserts):
-                            shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, local_inserts)
-                            # print(["1", old_nucleotide.pointer,old_nucleotide.next.pointer,shifted_nucleotide.pointer, shifted_nucleotide.next.pointer])
-                            local_inserts     += 1
-                            num_inserted      += 1
-                            index_shift        = inserts_in_vh - num_inserted
+                    has_inserts        = self.insert_matrix[old_nucleotide.vh][old_nucleotide.index][old_nucleotide.is_fwd]
 
-                    shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, local_inserts)
+                    if is_fwd:
+                        local_inserts = 0
+                        if has_inserts is not None:
+                            num_inserts   = has_inserts
+                            # print(old_nucleotide.pointer)
+                            for inserts in range(num_inserts):
+                                shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, local_inserts)
+                                # print(["1", old_nucleotide.pointer,old_nucleotide.next.pointer,shifted_nucleotide.pointer, shifted_nucleotide.next.pointer])
+                                local_inserts     += 1
+                                num_inserted      += 1
+                                index_shift        = inserts_in_vh - num_inserted
+
+                        shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, local_inserts)
+                    else:
+                        local_inserts = 0
+                        if has_inserts is not None:
+                            num_inserts   = has_inserts
+                            # print(old_nucleotide.pointer)
+                            for inserts in reversed(range(num_inserts)):
+                                shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, inserts + 1)
+                                # print(["1", old_nucleotide.pointer,old_nucleotide.next.pointer,shifted_nucleotide.pointer, shifted_nucleotide.next.pointer])
+                                local_inserts     += 1
+                                num_inserted      += 1
+                                index_shift        = inserts_in_vh - num_inserted
+
+                        shifted_nucleotide = self.update_shifted_nucleotide(old_nucleotide, index_shift, 0)
+
                     # print(["2", old_nucleotide.pointer,old_nucleotide.next.pointer,shifted_nucleotide.pointer, shifted_nucleotide.next.pointer])
 
         #3. Now that all nucleotides have been shifted, update 'next' based on dictionary of tuples
@@ -785,7 +810,11 @@ class Origami:
         #3.3 update the old_next to new_next based on the shift
         #3.4 update who this shifted is now pointing to after neighbors have shifted
 
-        def find_insert_boundary(lookup_pointer):
+        def find_leftmost_insert_boundary(lookup_pointer):
+            '''
+            given a pointer part of a insert region,
+            return pointer to the lowest index in the insert region
+            '''
             dict = self.insert_update_dict
             boundary = 0
             for extended_pointer in dict:
@@ -805,18 +834,24 @@ class Origami:
             shifted_nucleotide      = self.get_nucleotide(shifted_pointer)
 
             old_next_pointer        = shifted_nucleotide.next.pointer
-            # careful here !! Test!
-            old_next_pointer        = find_insert_boundary(old_next_pointer)
+            is_fwd                  = old_pointer[2]
+
+            old_next_pointer = find_leftmost_insert_boundary(old_next_pointer)
 
             # print([shifted_nucleotide.next.pointer, old_next_pointer])
             shifted_next_pointer    = self.insert_update_dict[old_next_pointer][:] #shallow copy, dont overwrite it
-            shifted_next_pointer[1]-= insert_shift
+            if is_fwd:
+                shifted_next_pointer[1]-= insert_shift
+            else:
+                shifted_next_pointer[1]+= insert_shift
+
             shifted_nucleotide.next = self.get_nucleotide(shifted_next_pointer)
 
             # print([old_pointer, shifted_nucleotide.pointer, shifted_nucleotide.next.pointer])
 
 
     def update_oligos_list(self):
+
         new_oligo_list = []
         for oligo in self.oligos_list:
             start_pointer    = oligo.start_pointer
@@ -911,6 +946,7 @@ class Nucleotide:
         self.direction                    = None      # 1 is fwd, 0 is reverse
         self.is_fwd                       = None      # 0: reverse, 1:forward
         self.index                        = None      # z position in cadnano's unit
+        self.oligo                        = None      # Nucleotide's oligo number
         self.strand                       = None      # Nucleotide's strand number
         self.vh                           = None      # Nucleotide's virtual helix
         self.skip                         = False     # Whether the nucleotide is a skip
