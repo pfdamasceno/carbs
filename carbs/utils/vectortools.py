@@ -37,6 +37,21 @@ def orthogonal(u):
     orth /= np.linalg.norm(orth)  # normalize it
     return(orth)
 
+def dihedral(a, b, c, d):
+    ab     = a - b
+    cb     = c - b
+    cbm    = - cb
+    dc     = d - c
+    aa     = np.cross(ab, cbm)
+    bb     = np.cross(dc, cbm)
+    c_abcd = np.dot(aa, bb) / (np.linalg.norm(aa) * np.linalg.norm(bb))
+    s_abcd = np.dot(aa, dc) / (np.linalg.norm(aa) * np.linalg.norm(dc))
+    if c_abcd == 0:
+        theta = np.arcsin(s_abcd)
+    else:
+        theta = np.arctan(s_abcd / c_abcd)
+    return(theta)
+
 def calculateCoM(list_of_positions):
     '''
     Given a list of arrays containing particle positions (vector3)
@@ -50,7 +65,7 @@ def calculateMomentInertia(list_of_positions):
     '''
     Given a list of arrays containing particle positions (vector3)
     Return the moment of inertia (vector3) of the system of particles
-    Assumes equal masses
+    Assumes equal masses and total mass for the body == 1
     '''
     inertia = np.array([0., 0., 0.])
     center = calculateCoM(list_of_positions)
@@ -60,13 +75,17 @@ def calculateMomentInertia(list_of_positions):
         inertia = inertia + new_inertia
     #re-scale particle masses so that body is not hugely slow
     #this needs to be tested
-    # inertia /= p
+    inertia /= p
     return(inertia)
 
 ###############################
 # Useful Quaternion Functions #
 ###############################
-def vectorQuaternion(u,v):
+def find_quaternion_from_2_vectors(u, v):
+    '''
+    Given 2 vectors (u, v), find the normalized quaternion
+    bringing one into the other
+    '''
     cross = np.cross(u,v)
     if np.dot(u, v) < -0.999999:
         orthogonal = findOrthogonal(u)
@@ -77,22 +96,26 @@ def vectorQuaternion(u,v):
     my_quaternion = quat.quaternion.normalized(my_quaternion)
     return(my_quaternion)
 
-def testQuaternion(u,my_quat):
+def rotate_vector_by_quaternion(u, my_quat):
+    '''
+    Given: a vector u and a quaternion 'my_quat'
+    Returns: the u' = my_quat * u * (my_quat)^-1
+    '''
     rotated_vector = my_quat * quat.quaternion(*u) * np.conjugate(my_quat)
     return([rotated_vector.x,rotated_vector.y,rotated_vector.z])
 
-def systemQuaternion(lst1,lst2,matchlist=None):
+def find_quaternion_from_2_axes(axis_1, axis_2, matchlist=None):
     '''
-    from https://stackoverflow.com/questions/16648452/calculating-quaternion-for-transformation-between-2-3d-cartesian-coordinate-syst
-    Given 2 lists of 3 orthogonal vectors,
-    find the quaternion transformation bringing list2 into list1
+    answer from: https://stackoverflow.com/a/23760608/853243
+    Given 2 lists of 3 orthogonal vectors (axes),
+    find the quaternion transformation bringing axis_1 into axis_2
     '''
     if not matchlist:
-         matchlist=range(len(lst1))
+         matchlist=range(len(axis_1))
     M=np.matrix([[0,0,0],[0,0,0],[0,0,0]])
 
-    for i,coord1 in enumerate(lst1):
-         x=np.matrix(np.outer(coord1,lst2[matchlist[i]]))
+    for i,coord1 in enumerate(axis_1):
+         x=np.matrix(np.outer(coord1,axis_2[matchlist[i]]))
          M=M+x
 
     N11=float(M[0][:,0]+M[1][:,1]+M[2][:,2])
