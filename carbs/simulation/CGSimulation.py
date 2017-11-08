@@ -253,8 +253,8 @@ class CGSimulation:
 
         self.angle_harmonic = md.angle.harmonic()
         self.angle_harmonic.angle_coeff.set('watson_crick_angle', k=20, t0=3.1415) #how resistant to bending is a dsDNA
-        self.angle_harmonic.angle_coeff.set('axis_angle'        , k=10, t0=3.1415)         #how resistant to bending is a nucl wrt its watson_crick pair
-        self.angle_harmonic.angle_coeff.set('bckb_axis_angle'   , k=10, t0=3.1415/2.)
+        self.angle_harmonic.angle_coeff.set('axis_angle'        , k=20, t0=3.1415)         #how resistant to bending is a nucl wrt its watson_crick pair
+        self.angle_harmonic.angle_coeff.set('bckb_axis_angle'   , k=20, t0=3.1415/2.)
 
     def set_dihedral_bonds(self):
         '''
@@ -311,7 +311,7 @@ class CGSimulation:
         ########## INTEGRATION ############
         md.integrate.mode_standard(dt=0.001);
         rigid = group.rigid_center();
-        md.integrate.langevin(group=rigid, kT=0.01, seed=42);
+        md.integrate.langevin(group=rigid, kT=0.05, seed=42);
 
     def run(self,num_steps=1e6):
         run(num_steps)
