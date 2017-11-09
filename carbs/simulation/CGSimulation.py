@@ -73,7 +73,7 @@ class CGSimulation:
         self.num_nucleotides = len(bkbone_positions)
 
         self.snapshot = data.make_snapshot(N             = self.num_nucleotides,
-                                          box            = data.boxdim(Lx=100, Ly=100, Lz=100),
+                                          box            = data.boxdim(Lx=200, Ly=200, Lz=200),
                                           particle_types = ['backbone','sidechain','aux'],
                                           bond_types     = self.bond_types,
                                           angle_types    = self.angle_types,

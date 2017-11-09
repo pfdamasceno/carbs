@@ -66,7 +66,7 @@ class RigidBodySimulation:
         self.body_types += ["nucleotides"]
 
         self.snapshot = data.make_snapshot(N = self.num_rigid_bodies + self.num_soft_bodies,
-                                          box = data.boxdim(Lx=100, Ly=100, Lz=100),
+                                          box = data.boxdim(Lx=200, Ly=200, Lz=200),
                                           particle_types = self.body_types,
                                           bond_types = ['interbody']);
 
