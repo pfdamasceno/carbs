@@ -273,7 +273,6 @@ class CGSimulation:
         dtable.dihedral_coeff.set('dihedral4', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.317 - np.pi)) #-Pi (?)
         dtable.dihedral_coeff.set('dihedral5', func=harmonic_angle, coeff=dict(kappa=1, theta0=+0.280))
 
-
     def set_wca_potentials(self):
         '''
         Set WCA potentials
