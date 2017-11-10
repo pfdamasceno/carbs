@@ -432,7 +432,7 @@ class Origami:
 
             for cadnano_strand in staple_strandSet:
                 self.connection3p(cadnano_strand)
-            for strand in scaffold_strandSet:
+            for cadnano_strand in scaffold_strandSet:
                 self.connection3p(cadnano_strand)
 
     def dfs(self, start_nucleotide_type):
