@@ -184,7 +184,6 @@ class CGSimulation:
 
                 this_nucleotide = this_nucleotide.next
 
-
     def create_adjacent_bonds(self):
         '''
         Create spring bonds between adjacent (neighboring) backbone particles
@@ -287,7 +286,6 @@ class CGSimulation:
         wca.pair_coeff.set('backbone', 'aux',        epsilon=0.0, sigma=1.000, r_cut=1.000*2**(1/6))
         wca.pair_coeff.set('aux', 'sidechain',       epsilon=0.0, sigma=1.000, r_cut=1.000*2**(1/6))
         wca.pair_coeff.set('aux', 'aux',             epsilon=0.0, sigma=1.000, r_cut=1.000*2**(1/6))
-
 
     def fix_diameters(self):
         for i in range(0, self.num_nucleotides):

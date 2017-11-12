@@ -598,7 +598,7 @@ class Origami:
         the first nucleotide in oligos_list
         '''
 
-        # 1. Calculate list of vectors for very 1st nucleotide in oligo. It will have quaternion (1,0,0,0)
+        # 1. Define quaternion for very 1st nucleotide as (1,0,0,0)
         strand_0 = self.oligos_list[0].strands_list[0]
 
         [vh_0, index_0, is_fwd_0] = strand_0.pointers_list[0]  # very first nucleotide in origami
@@ -656,9 +656,9 @@ class Origami:
                         axial_vector_1 = - (axis_2 - axis_1)
                         orth_vector_1 = np.cross(base_vector_1, axial_vector_1)
 
-                    vect_list_1 = (base_vector_1+np.array([0.00001,0,0])/np.linalg.norm(base_vector_1+np.array([0.00001,0,0])), \
-                                   axial_vector_1+np.array([0.00001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.00001,0,0])), \
-                                   orth_vector_1+np.array([0.00001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.00001,0,0])))
+                    vect_list_1 = (base_vector_1+np.array([0.000001,0,0])/np.linalg.norm(base_vector_1+np.array([0.000001,0,0])), \
+                                   axial_vector_1+np.array([0.000001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.000001,0,0])), \
+                                   orth_vector_1+np.array([0.000001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.000001,0,0])))
 
                     nucl                      = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
                     nucl.vectors_body_frame   = vect_list_1

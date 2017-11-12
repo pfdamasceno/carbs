@@ -54,7 +54,7 @@ class RigidBodySimulation:
         self.rigid_bodies_comass_positions  = [body.comass_position for body in self.rigid_bodies]
         self.center_of_mass                 = np.average(np.asarray(self.rigid_bodies_comass_positions)[:,:3], axis=0)
 
-        self.rigid_bodies_comass_positions -= self.center_of_mass
+        # self.rigid_bodies_comass_positions -= self.center_of_mass
         self.rigid_bodies_moment_inertia    = [body.moment_inertia for body in self.rigid_bodies]
 
         if self.num_soft_bodies > 0:
@@ -99,10 +99,10 @@ class RigidBodySimulation:
 
             nucleotide_positions = [nucleotide.position[1] for nucleotide in body.nucleotides]
             #move particles to body reference frame
-            nucleotide_positions -= body.comass_position
+            nucleotide_positions_centered = nucleotide_positions - body.comass_position
             self.rigid.set_param(body_type, \
-                        types=['nucleotides']*len(nucleotide_positions), \
-                        positions = nucleotide_positions);
+                        types=['nucleotides']*len(nucleotide_positions_centered), \
+                        positions = nucleotide_positions_centered);
 
         self.rigid.create_bodies()
 
@@ -166,7 +166,7 @@ class RigidBodySimulation:
 
     def run(self,num_steps):
         run(num_steps)
-        # now run with stronger spring for another 10,000 steps
+        ## now run with stronger spring for another 10,000 steps
         # self.set_harmonic_bonds(10.)
         # run(100000)
 
@@ -180,10 +180,10 @@ class RigidBodySimulation:
             for idx in range(len(self.origami.nucleotide_matrix[vh])):
                 for is_fwd in range(2):
                     nucleotide = self.origami.nucleotide_matrix[vh][idx][is_fwd]
-                    if nucleotide != None:
+                    if not nucleotide.is_empty:
                         simulation_num = delta + nucleotide.simulation_nucleotide_num
 
-                        #1: update backbone position
+                        #1: update backbone position after simulation
                         nucleotide.position[1] = self.system.particles[simulation_num].position
 
                         #2: update nucleotide quaternion
@@ -208,8 +208,14 @@ class RigidBodySimulation:
                             vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[2], nucl_quat_new)]
                         nucleotide.vectors_body_frame = nucl_vectors_body_frame_new
 
-                        #4: update axis particle position
+                        #4: only backbone particles move during RB simulation. update axis particle positions here:
                         nucleotide.position[0] = np.array(nucl_vectors_body_frame_new[0]) + nucleotide.position[1]
+
+                        #debug:
+                        n1 = self.origami.nucleotide_matrix[vh][idx][is_fwd]
+                        is_rev = 1 - is_fwd
+                        n2 = self.origami.nucleotide_matrix[vh][idx][is_rev]
+                        average_pos = (np.array(n1.position[1]) + np.array(n2.position[1]))/2.
 
     def save_to_pickle(self, filename):
         '''
