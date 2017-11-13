@@ -51,7 +51,6 @@ relax_simulation.run(100000)
 relax_simulation.update_positions_and_quaternions()
 relax_simulation.save_to_pickle(PICKLE_FILE)
 
-
 cg_simulation = CGSimulation.CGSimulation()
 cg_simulation.parse_origami_from_pickle(PICKLE_FILE)
 cg_simulation.initialize_cg_md()
@@ -71,6 +70,5 @@ cg_simulation.fix_diameters()
 cg_simulation.dump_settings(OUTPUT_FILENAME_2, 1)
 cg_simulation.integration()
 
-cg_simulation.run(2)
-
+cg_simulation.run(1)
 print('the end')

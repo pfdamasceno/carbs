@@ -166,9 +166,9 @@ class RigidBodySimulation:
 
     def run(self,num_steps):
         run(num_steps)
-        ## now run with stronger spring for another 10,000 steps
-        # self.set_harmonic_bonds(10.)
-        # run(100000)
+        # now run with stronger spring for another 10,000 steps
+        self.set_harmonic_bonds(10.)
+        run(100000)
 
     def update_positions_and_quaternions(self):
         '''
@@ -206,16 +206,10 @@ class RigidBodySimulation:
                            [vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[0], nucl_quat_new),\
                             vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[1], nucl_quat_new),\
                             vectortools.rotate_vector_by_quaternion(nucl_vectors_body_frame_old[2], nucl_quat_new)]
-                        nucleotide.vectors_body_frame = nucl_vectors_body_frame_new
+                        # nucleotide.vectors_body_frame = nucl_vectors_body_frame_new
 
                         #4: only backbone particles move during RB simulation. update axis particle positions here:
                         nucleotide.position[0] = np.array(nucl_vectors_body_frame_new[0]) + nucleotide.position[1]
-
-                        #debug:
-                        n1 = self.origami.nucleotide_matrix[vh][idx][is_fwd]
-                        is_rev = 1 - is_fwd
-                        n2 = self.origami.nucleotide_matrix[vh][idx][is_rev]
-                        average_pos = (np.array(n1.position[1]) + np.array(n2.position[1]))/2.
 
     def save_to_pickle(self, filename):
         '''

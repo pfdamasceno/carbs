@@ -656,14 +656,13 @@ class Origami:
                         axial_vector_1 = - (axis_2 - axis_1)
                         orth_vector_1 = np.cross(base_vector_1, axial_vector_1)
 
-                    vect_list_1 = (base_vector_1+np.array([0.000001,0,0])/np.linalg.norm(base_vector_1+np.array([0.000001,0,0])), \
-                                   axial_vector_1+np.array([0.000001,0,0])/np.linalg.norm(axial_vector_1+np.array([0.000001,0,0])), \
-                                   orth_vector_1+np.array([0.000001,0,0])/np.linalg.norm(orth_vector_1+np.array([0.000001,0,0])))
+                    vect_list_1 = (base_vector_1, axial_vector_1, orth_vector_1)
 
+                    vect_list_1_norm = vect_list_1/np.linalg.norm(vect_list_1)
                     nucl                      = self.nucleotide_matrix[vh_1][index_1][is_fwd_1]
                     nucl.vectors_body_frame   = vect_list_1
                     nucl.vectors_global_frame = [axis_1, backbone_1, orth_vector_1 + backbone_1]
-                    nucl_quaternion           = vectortools.find_quaternion_from_2_axes(vect_list_0, vect_list_1)
+                    nucl_quaternion           = vectortools.find_quaternion_from_2_axes(vect_list_0, vect_list_1_norm)
                     nucl.quaternion           = [nucl_quaternion.w, \
                                                  nucl_quaternion.x, \
                                                  nucl_quaternion.y, \
