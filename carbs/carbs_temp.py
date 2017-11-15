@@ -11,10 +11,10 @@ from simulation import RBSimulation
 
 app = cadnano.app()
 doc = app.document = Document()
-FILENAME = 'PFD_2hb_connected'
-INPUT_FILENAME    = '../../cadnano-files/' + FILENAME +'.json'
-OUTPUT_FILENAME_1 = '../../cadnano-files/carbs_output/' + FILENAME +'_RB.gsd'
-OUTPUT_FILENAME_2 = '../../cadnano-files/carbs_output/' + FILENAME +'_CG.gsd'
+FILENAME = 'PFD_king_tripod_v0.21'
+INPUT_FILENAME    = '../../carbs-designs/carbs_input/' + FILENAME +'.json'
+OUTPUT_FILENAME_1 = '../../carbs-designs/carbs_output/' + FILENAME +'_RB.gsd'
+OUTPUT_FILENAME_2 = '../../carbs-designs/carbs_output/' + FILENAME +'_CG.gsd'
 PICKLE_FILE       = 'data/' + FILENAME + '.pckl'
 
 doc.readFile(INPUT_FILENAME);
@@ -45,9 +45,9 @@ relax_simulation.create_rigid_bodies()
 relax_simulation.create_bonds()
 relax_simulation.set_initial_harmonic_bonds()
 relax_simulation.set_lj_potentials()
-relax_simulation.dump_settings(OUTPUT_FILENAME_1, 100)
+relax_simulation.dump_settings(OUTPUT_FILENAME_1, 100000)
 
-relax_simulation.run(100000)
+relax_simulation.run(100)
 relax_simulation.update_positions_and_quaternions()
 relax_simulation.save_to_pickle(PICKLE_FILE)
 
